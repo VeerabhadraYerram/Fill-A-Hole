@@ -44,7 +44,7 @@ MapScreen.js
     *   *Step 4*: A final Preview card summarizing all inputted details before submission.
 
 #### Community & Engagement
-*   **`HomeDashboard.js`**: Provides a personalized greeting, a high-level region Map view, and a horizontally scrolling "Hot Issues" bottom sheet.
+*   **`HomeDashboard.js`**: Redesigned as the primary "Reddit-style" feed. Features a vertically scrolling `FlatList` of large issue cards containing the author's avatar, timestamp, severe images, and direct action buttons for Upvoting and Commenting.
 *   **`MapScreen.js`**: A full-canvas interactive map showing distinct pins for distinct categories. It features a floating Search bar and a scrollable filter chip bar at the bottom.
 *   **`FeedScreen.js`**: Integrates `@react-navigation/material-top-tabs` to categorize posts (Nearby, Trending, All), each rendering a highly-styled FlatList of issue cards summarizing upvotes and volunteers.
 *   **`PostDetailScreen.js`**: A comprehensive screen for a single issue. Highlights include a massive hero image, floating tags (e.g., "Safety"), progress bars tracking required vs joined volunteers, and distinct CTA buttons to Volunteer, Donate, or Chat.
