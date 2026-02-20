@@ -1,0 +1,20 @@
+{
+  "name": "02_feature_logic",
+  "version": "1.0.0",
+  "description": "Business logic and user-flow components for Fill-A-Hole issue workflow & applications",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js"
+  },
+  "dependencies": {
+    "firebase": "^10.8.0",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  },
+  "jest": {
+    "testEnvironment": "node"
+  }
+}
