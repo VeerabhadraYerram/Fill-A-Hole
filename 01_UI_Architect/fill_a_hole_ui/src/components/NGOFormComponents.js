@@ -42,23 +42,46 @@ export const FormRenderer = ({ schema = [] }) => {
 };
 
 export const DynamicFormBuilder = () => {
+    const [fields, setFields] = useState([]);
+
+    const addField = (type) => {
+        const newField = {
+            id: `field_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+            type: type,
+            label: "",
+            required: true
+        };
+        setFields([...fields, newField]);
+    };
+
+    const updateFieldLabel = (id, text) => {
+        setFields(fields.map(f => f.id === id ? { ...f, label: text } : f));
+    };
+
     return (
         <View style={styles.builderContainer}>
             <Text style={styles.builderTitle}>Dynamic Form Builder (Admin)</Text>
             <View style={styles.builderToolbar}>
-                <TouchableOpacity style={styles.toolBtn}><Text style={styles.toolText}>+ Text Field</Text></TouchableOpacity>
-                <TouchableOpacity style={styles.toolBtn}><Text style={styles.toolText}>+ Multiple Choice</Text></TouchableOpacity>
-                <TouchableOpacity style={styles.toolBtn}><Text style={styles.toolText}>+ Photo Upload</Text></TouchableOpacity>
+                <TouchableOpacity style={styles.toolBtn} onPress={() => addField('text')}><Text style={styles.toolText}>+ Text Field</Text></TouchableOpacity>
+                <TouchableOpacity style={styles.toolBtn} onPress={() => addField('multiple-choice')}><Text style={styles.toolText}>+ Multiple Choice</Text></TouchableOpacity>
+                <TouchableOpacity style={styles.toolBtn} onPress={() => addField('photo')}><Text style={styles.toolText}>+ Photo Upload</Text></TouchableOpacity>
             </View>
             <ScrollView style={styles.builderCanvas}>
-                <View style={styles.builderItem}>
-                    <Text style={{ fontWeight: 'bold' }}>Q1: Multiple Choice</Text>
-                    <TextInput style={styles.builderInput} value="What tools can you bring?" />
-                </View>
-                <View style={styles.builderItem}>
-                    <Text style={{ fontWeight: 'bold' }}>Q2: Photo Upload</Text>
-                    <TextInput style={styles.builderInput} value="Upload ID Proof" />
-                </View>
+                {fields.length === 0 ? (
+                    <Text style={{ textAlign: 'center', color: '#999', marginTop: 40 }}>Add your first field above to start building the application form!</Text>
+                ) : (
+                    fields.map((field, index) => (
+                        <View key={field.id} style={styles.builderItem}>
+                            <Text style={{ fontWeight: 'bold' }}>Q{index + 1}: {field.type.toUpperCase()}</Text>
+                            <TextInput
+                                style={styles.builderInput}
+                                placeholder={`Enter question title for ${field.type}...`}
+                                value={field.label}
+                                onChangeText={(text) => updateFieldLabel(field.id, text)}
+                            />
+                        </View>
+                    ))
+                )}
             </ScrollView>
         </View>
     );

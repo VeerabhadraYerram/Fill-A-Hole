@@ -48,6 +48,14 @@ service cloud.firestore {
       allow read: if isAuthenticated();
     }
 
+    // Applications Collection
+    match /applications/{applicationId} {
+      // Volunteers can submit their applications
+      allow create: if isAuthenticated() && request.resource.data.applicantId == request.auth.uid;
+      // Volunteers can read their own applications, NGOs and Admins can read all applications
+      allow read: if isAuthenticated() && (request.auth.uid == resource.data.applicantId || isRole('ngo') || isRole('admin'));
+    }
+
     // Chats Collection
     match /chats/{chatId} {
       allow read, update: if isAuthenticated() && request.auth.uid in resource.data.participantIds;
