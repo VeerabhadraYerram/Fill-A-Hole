@@ -1,14 +1,19 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, ScrollView, Switch } from 'react-native';
+import { View, Text, TextInput, StyleSheet, TouchableOpacity, ScrollView, Switch, Alert, ActivityIndicator } from 'react-native';
 import PagerView from 'react-native-pager-view';
 import { theme } from '../core/theme';
 import { AILoadingIndicator, AIResourceSuggestionChip } from '../components/TrustAIComponents';
+import { auth, db } from '../core/firebaseConfig';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 export default function CreatePostWizard({ navigation }) {
     const pagerRef = useRef(null);
     const [step, setStep] = useState(0);
+    const [title, setTitle] = useState('');
+    const [description, setDescription] = useState('');
     const [communitySolvable, setCommunitySolvable] = useState(false);
     const [aiSuggesting, setAiSuggesting] = useState(false);
+    const [loading, setLoading] = useState(false);
 
     useEffect(() => {
         if (communitySolvable) {
@@ -17,13 +22,58 @@ export default function CreatePostWizard({ navigation }) {
         }
     }, [communitySolvable]);
 
-    const nextStep = () => {
+    const nextStep = async () => {
         if (step < 3) {
             pagerRef.current?.setPage(step + 1);
         } else {
             // Submit logic
-            alert('Success! Your report has been submitted.');
-            navigation.goBack();
+            if (!title) {
+                Alert.alert("Error", "Please enter a title for your report.");
+                return;
+            }
+
+            setLoading(true);
+            try {
+                const user = auth.currentUser;
+                // Prepare exactly as our backend schema expects
+                const newPost = {
+                    authorId: user ? user.uid : "anonymous",
+                    title: title,
+                    description: description,
+                    category: "Infrastructure", // Hardcoded for MVP UI
+                    isCommunitySolvable: communitySolvable,
+                    status: "open",
+                    location: {
+                        geohash: "tdr1vzc", // Mock location for Bengaluru for now
+                        lat: 12.9716,
+                        lng: 77.5946
+                    },
+                    mediaUrls: [],
+                    metrics: {
+                        upvotes: 0,
+                        commentCount: 0,
+                        shares: 0,
+                        volunteersCount: 0
+                    },
+                    verificationData: {
+                        isVerified: false,
+                        trustScore: 0
+                    },
+                    createdAt: serverTimestamp(),
+                    updatedAt: serverTimestamp()
+                };
+
+                await addDoc(collection(db, 'posts'), newPost);
+
+                setLoading(false);
+                Alert.alert('Success!', 'Your civic issue has been securely logged on the blockchain and reported.');
+                navigation.goBack();
+
+            } catch (error) {
+                console.error("Error creating post: ", error);
+                Alert.alert("Error", "Failed to submit report. Please try again.");
+                setLoading(false);
+            }
         }
     };
 
@@ -97,11 +147,18 @@ export default function CreatePostWizard({ navigation }) {
                 {/* Step 3: Details */}
                 <ScrollView key="2" style={styles.pageScroll}>
                     <Text style={theme.typography.displayLarge}>Details</Text>
-                    <TextInput style={styles.input} placeholder="Title" />
+                    <TextInput
+                        style={styles.input}
+                        placeholder="Title"
+                        value={title}
+                        onChangeText={setTitle}
+                    />
                     <TextInput
                         style={[styles.input, { height: 100, textAlignVertical: 'top' }]}
                         placeholder="Description (Optional)"
                         multiline
+                        value={description}
+                        onChangeText={setDescription}
                     />
                     <View style={styles.toggleCard}>
                         <View style={{ flex: 1 }}>
@@ -147,8 +204,14 @@ export default function CreatePostWizard({ navigation }) {
                 </View>
             </PagerView >
 
-            <TouchableOpacity style={styles.bottomBtn} onPress={nextStep}>
-                <Text style={styles.bottomBtnText}>{step === 3 ? 'Submit Report' : 'Next'}</Text>
+            <TouchableOpacity
+                style={[styles.bottomBtn, loading && { opacity: 0.7 }]}
+                onPress={nextStep}
+                disabled={loading}
+            >
+                <Text style={styles.bottomBtnText}>
+                    {loading ? "Submitting..." : (step === 3 ? 'Submit Report' : 'Next')}
+                </Text>
             </TouchableOpacity>
         </View >
     );

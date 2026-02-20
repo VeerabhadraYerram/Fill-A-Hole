@@ -1,62 +1,102 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Image, ScrollView, TouchableOpacity, Dimensions } from 'react-native';
 import { theme } from '../core/theme';
 import { VerificationBadge, AIResourceSuggestionChip } from '../components/TrustAIComponents';
+import { db } from '../core/firebaseConfig';
+import { doc, onSnapshot } from 'firebase/firestore';
 
 const { width } = Dimensions.get('window');
 
-export default function PostDetailScreen({ navigation }) {
+export default function PostDetailScreen({ navigation, route }) {
+    const { postId } = route.params || {};
+    const [post, setPost] = useState(null);
+
+    useEffect(() => {
+        if (!postId) return;
+        const unsubscribe = onSnapshot(doc(db, 'posts', postId), (docSnap) => {
+            if (docSnap.exists()) {
+                setPost({ id: docSnap.id, ...docSnap.data() });
+            }
+        }, (error) => {
+            console.error("Firestore Error in PostDetail:", error);
+        });
+        return () => unsubscribe();
+    }, [postId]);
+
+    if (!post) {
+        return (
+            <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+                <Text style={{ color: '#666' }}>Loading issue details...</Text>
+            </View>
+        );
+    }
+
     return (
         <View style={styles.container}>
             <ScrollView>
-                <Image source={{ uri: 'https://via.placeholder.com/800x400' }} style={styles.heroImage} />
+                {post.mediaUrls && post.mediaUrls.length > 0 ? (
+                    <Image source={{ uri: post.mediaUrls[0] }} style={styles.heroImage} />
+                ) : (
+                    <View style={[styles.heroImage, { backgroundColor: '#E0E0E0', justifyContent: 'center', alignItems: 'center' }]}>
+                        <Text style={{ color: '#888' }}>No Image Attached</Text>
+                    </View>
+                )}
 
                 <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
                     <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 20 }}>←</Text>
                 </TouchableOpacity>
 
                 <View style={styles.upvoteBadge}>
-                    <Text style={{ fontWeight: 'bold' }}>❤️ 124 Upvotes</Text>
+                    <Text style={{ fontWeight: 'bold' }}>❤️ {post.metrics?.upvotes || 0} Upvotes</Text>
                 </View>
 
                 <View style={styles.content}>
-                    <Text style={styles.title}>Huge Pothole causing traffic</Text>
+                    <Text style={styles.title}>{post.title}</Text>
                     <View style={styles.metaRow}>
-                        <VerificationBadge score={96} />
-                        <View style={styles.tagSafety}><Text style={styles.tagSafetyText}>Safety</Text></View>
-                        <Text style={styles.authorText}>by Koushik</Text>
+                        {post.verificationData?.isVerified != null && (
+                            <VerificationBadge score={post.verificationData.trustScore || 0} />
+                        )}
+                        <View style={[styles.tagSafety, post.category === 'Infrastructure' && { backgroundColor: 'rgba(244, 67, 54, 0.1)' }]}><Text style={[styles.tagSafetyText, post.category === 'Infrastructure' && { color: '#F44336' }]}>{post.category}</Text></View>
+                        <Text style={styles.authorText}>by {typeof post.authorId === 'string' ? post.authorId.substring(0, 5) : "Anon"}</Text>
                     </View>
 
                     <View style={styles.geoLinkBox}>
-                        <Text style={styles.geoLinkText}>📍 LAT: 16.5062 | LNG: 80.6480</Text>
+                        <Text style={styles.geoLinkText}>📍 LAT: {Number(post.location?.lat || 0).toFixed(4)} | LNG: {Number(post.location?.lng || 0).toFixed(4)}</Text>
                         <TouchableOpacity><Text style={styles.geoLinkAction}>Open in Maps ↗</Text></TouchableOpacity>
                     </View>
 
                     <Text style={styles.sectionTitle}>Description</Text>
                     <Text style={styles.description}>
-                        This pothole is extremely dangerous at night. Multiple bikes have skidded here. We need some gravel and tar to patch it up temporarily.
+                        {post.description || "No description provided."}
                     </Text>
 
-                    <View style={styles.progressCard}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                            <Text style={{ color: theme.colors.primaryGreen, marginRight: 8 }}>👥</Text>
-                            <Text style={{ fontWeight: 'bold', fontSize: 16 }}>Community Solvable</Text>
-                        </View>
+                    {post.isCommunitySolvable && (
+                        <View style={styles.progressCard}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                <Text style={{ color: theme.colors.primaryGreen, marginRight: 8 }}>🤖</Text>
+                                <Text style={{ fontWeight: 'bold', fontSize: 16 }}>AI Resource Estimates</Text>
+                            </View>
 
-                        <View style={styles.aiChipsRow}>
-                            <AIResourceSuggestionChip suggestion="4-5 Volunteers Needed" />
-                            <AIResourceSuggestionChip suggestion="₹1,200 Funds Req." />
-                            <AIResourceSuggestionChip suggestion="Gravel & Tar" />
-                        </View>
+                            <View style={styles.aiChipsRow}>
+                                {post.volunteersNeeded && <AIResourceSuggestionChip suggestion={`👥 ${post.volunteersNeeded} Volunteers`} />}
+                                {post.fundsRequired && <AIResourceSuggestionChip suggestion={`₹${post.fundsRequired} Est. Cost`} />}
+                                {Array.isArray(post.materialsNeeded) && post.materialsNeeded.map((mat, i) => (
+                                    <AIResourceSuggestionChip key={i} suggestion={`📦 ${mat}`} />
+                                ))}
+                                {!post.volunteersNeeded && (!post.materialsNeeded || !Array.isArray(post.materialsNeeded)) && (
+                                    <Text style={{ color: '#666', fontStyle: 'italic', marginTop: 8 }}>Gemini is analyzing this report...</Text>
+                                )}
+                            </View>
 
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 12 }}>
-                            <Text>Current Progress</Text>
-                            <Text>80%</Text>
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 12 }}>
+                                <Text>Current Progress</Text>
+                                <Text>0%</Text>
+                            </View>
+                            <View style={styles.progressBarBg}>
+                                <View style={[styles.progressBarFill, { width: '0%' }]} />
+                            </View>
                         </View>
-                        <View style={styles.progressBarBg}>
-                            <View style={[styles.progressBarFill, { width: '80%' }]} />
-                        </View>
-                    </View>
+                    )}
 
                     <TouchableOpacity style={styles.volunteerBtn}>
                         <Text style={styles.volunteerBtnText}>🤝 Volunteer Now</Text>
@@ -72,9 +112,9 @@ export default function PostDetailScreen({ navigation }) {
 
                     <View style={styles.divider} />
 
-                    <Text style={styles.sectionTitle}>Comments</Text>
-                    <Comment name="Ravi" text="I can bring 1 bag of cement." />
-                    <Comment name="Priya" text="I have a shovel, will join at 5 PM." />
+                    <Text style={styles.sectionTitle}>Comments ({post.metrics?.commentCount || 0})</Text>
+                    {/* Placeholder for real comments */}
+                    <Text style={{ color: '#888', fontStyle: 'italic' }}>Be the first to comment!</Text>
 
                 </View>
             </ScrollView>

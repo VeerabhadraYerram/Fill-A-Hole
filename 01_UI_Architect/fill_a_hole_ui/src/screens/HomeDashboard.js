@@ -1,10 +1,29 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Image, FlatList, TouchableOpacity, RefreshControl } from 'react-native';
 import { theme } from '../core/theme';
-import { VerificationBadge } from '../components/TrustAIComponents';
+import { VerificationBadge, AIResourceSuggestionChip } from '../components/TrustAIComponents';
+import { db } from '../core/firebaseConfig';
+import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
 
 export default function HomeDashboard({ navigation }) {
     const [refreshing, setRefreshing] = useState(false);
+    const [posts, setPosts] = useState([]);
+
+    useEffect(() => {
+        const q = query(collection(db, 'posts'), orderBy('createdAt', 'desc'));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const fetchedPosts = [];
+            snapshot.forEach((doc) => {
+                fetchedPosts.push({ id: doc.id, ...doc.data() });
+            });
+            setPosts(fetchedPosts);
+        }, (error) => {
+            console.error("Firestore Error in HomeDashboard:", error);
+        });
+
+        // Cleanup subscription on unmount
+        return () => unsubscribe();
+    }, []);
 
     const onRefresh = React.useCallback(() => {
         setRefreshing(true);
@@ -33,40 +52,63 @@ export default function HomeDashboard({ navigation }) {
                 </View>
 
                 <FlatList
-                    data={[1, 2, 3]}
-                    keyExtractor={(item) => item.toString()}
+                    data={posts}
+                    keyExtractor={(item) => item.id}
                     showsVerticalScrollIndicator={false}
                     contentContainerStyle={styles.listContent}
                     refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.colors.primaryGreen]} />}
+                    ListEmptyComponent={<Text style={{ textAlign: 'center', marginTop: 50, color: '#666' }}>No issues reported yet in your area.</Text>}
                     renderItem={({ item, index }) => (
-                        <TouchableOpacity activeOpacity={0.9} onPress={() => navigation.navigate('PostDetail')} style={styles.issueCard}>
+                        <TouchableOpacity activeOpacity={0.9} onPress={() => navigation.navigate('PostDetail', { postId: item.id })} style={styles.issueCard}>
 
                             <View style={styles.cardHeader}>
                                 <Image source={{ uri: `https://i.pravatar.cc/150?img=${index + 10}` }} style={styles.authorAvatar} />
                                 <View>
-                                    <Text style={styles.authorName}>Reported by User_{Math.floor(Math.random() * 1000)}</Text>
-                                    <Text style={styles.timeAgo}>📍 1.2 km away • {index + 1} hours ago</Text>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                        <Text style={styles.authorName}>Reported by UID: {typeof item.authorId === 'string' ? item.authorId.substring(0, 5) : "Anon"}</Text>
+                                        {item.verificationData?.isVerified && (
+                                            <Text style={{ marginLeft: 4, fontSize: 12 }}>✅ {item.verificationData.trustScore}% Trusted</Text>
+                                        )}
+                                    </View>
+                                    <Text style={styles.timeAgo}>📍 {item.location?.geohash || 'Map'} • {item.createdAt && typeof item.createdAt.toDate === 'function' ? new Date(item.createdAt.toDate()).toLocaleDateString() : 'Just now'}</Text>
                                 </View>
                             </View>
 
-                            <Image source={{ uri: 'https://via.placeholder.com/400x200' }} style={styles.cardImage} />
+                            {item.mediaUrls && item.mediaUrls.length > 0 ? (
+                                <Image source={{ uri: item.mediaUrls[0] }} style={styles.cardImage} />
+                            ) : (
+                                <View style={[styles.cardImage, { backgroundColor: '#E0E0E0', justifyContent: 'center', alignItems: 'center' }]}>
+                                    <Text style={{ color: '#888' }}>No Image Attached</Text>
+                                </View>
+                            )}
 
                             <View style={styles.cardContent}>
                                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                    <Text style={styles.cardTitle} numberOfLines={2}>Massive Pothole on MG Road causing severe traffic jams.</Text>
-                                    <View style={styles.badge}><Text style={styles.badgeText}>Community Solvable</Text></View>
+                                    <Text style={styles.cardTitle} numberOfLines={2}>{item.title}</Text>
+                                    {item.isCommunitySolvable && (
+                                        <View style={styles.badge}><Text style={styles.badgeText}>Community Solvable</Text></View>
+                                    )}
                                 </View>
+
+                                {item.volunteersNeeded && item.materialsNeeded && (
+                                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 8 }}>
+                                        <AIResourceSuggestionChip suggestion={`👥 ${item.volunteersNeeded} vols`} />
+                                        {item.materialsNeeded.map((mat, i) => (
+                                            <AIResourceSuggestionChip key={i} suggestion={`📦 ${mat}`} />
+                                        ))}
+                                    </View>
+                                )}
 
                                 <View style={styles.actionRow}>
                                     <TouchableOpacity style={styles.actionBtn}>
                                         <Text style={styles.actionIcon}>⬆️</Text>
-                                        <Text style={styles.actionText}>{124 - (index * 12)}</Text>
+                                        <Text style={styles.actionText}>{item.metrics?.upvotes || 0}</Text>
                                         <Text style={styles.actionIcon}>⬇️</Text>
                                     </TouchableOpacity>
 
                                     <TouchableOpacity style={styles.actionBtn}>
                                         <Text style={styles.actionIcon}>💬</Text>
-                                        <Text style={styles.actionText}>{34 - (index * 5)} Comments</Text>
+                                        <Text style={styles.actionText}>{item.metrics?.commentCount || 0} Comments</Text>
                                     </TouchableOpacity>
 
                                     <TouchableOpacity style={styles.actionBtnShare}>

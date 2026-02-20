@@ -1,9 +1,14 @@
 import React, { useRef, useState } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { theme } from '../core/theme';
+import { auth, db } from '../core/firebaseConfig';
+import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 
-export default function OtpScreen({ navigation }) {
-    const [otp, setOtp] = useState(['', '', '', '']);
+export default function OtpScreen({ navigation, route }) {
+    const { phone } = route.params || {};
+    const [otp, setOtp] = useState(['', '', '', '']); // Changed back to 4 for mock UI
+    const [loading, setLoading] = useState(false);
     const inputs = useRef([]);
 
     const handleChange = (text, index) => {
@@ -16,8 +21,64 @@ export default function OtpScreen({ navigation }) {
         }
     };
 
-    const handleVerify = () => {
-        navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
+    const handleVerify = async () => {
+        const code = otp.join('');
+        if (code.length < 4) {
+            Alert.alert("Error", "Please enter any 4-digit OTP.");
+            return;
+        }
+
+        setLoading(true);
+        try {
+            // Expo Go blocks real SMS verification without native certificates.
+            // To ensure the backend tests work, we map the phone number to an Email Auth account in Firebase.
+            const fakeEmail = `${phone}@fillahole.com`;
+            const fakePassword = `Password${phone}`;
+
+            let user;
+            try {
+                // Try logging in first
+                const userCredential = await signInWithEmailAndPassword(auth, fakeEmail, fakePassword);
+                user = userCredential.user;
+            } catch (loginError) {
+                // If account doesn't exist, create it!
+                const userCredential = await createUserWithEmailAndPassword(auth, fakeEmail, fakePassword);
+                user = userCredential.user;
+            }
+
+            // Check if user exists in Firestore, if not create them
+            const userRef = doc(db, 'users', user.uid);
+            const userDoc = await getDoc(userRef);
+
+            if (!userDoc.exists()) {
+                await setDoc(userRef, {
+                    uid: user.uid,
+                    phone: `+91 ${phone}`,
+                    role: 'citizen',
+                    level: 1,
+                    levelTitle: 'Newcomer',
+                    streakDays: 0,
+                    stats: {
+                        issuesReported: 0,
+                        tasksCompleted: 0,
+                        peopleHelped: 0,
+                        civicCoins: 0
+                    },
+                    createdAt: serverTimestamp(),
+                    lastActive: serverTimestamp()
+                });
+            } else {
+                await setDoc(userRef, { lastActive: serverTimestamp() }, { merge: true });
+            }
+
+            setLoading(false);
+            navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
+
+        } catch (error) {
+            console.error("Auth Simulation Error:", error);
+            Alert.alert("Error", error.message || "Failed to authenticate.");
+            setLoading(false);
+        }
     };
 
     return (

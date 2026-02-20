@@ -1,20 +1,37 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TextInput, ScrollView, TouchableOpacity } from 'react-native';
 import MapView from 'react-native-map-clustering';
 import { Marker } from 'react-native-maps';
 import { theme } from '../core/theme';
 import { RadarPingMapOverlay } from '../components/GeoFencingComponents';
+import { db } from '../core/firebaseConfig';
+import { collection, query, onSnapshot } from 'firebase/firestore';
 
-export default function MapScreen() {
+export default function MapScreen({ navigation }) {
     const [filter, setFilter] = useState('All');
+    const [posts, setPosts] = useState([]);
     const filters = ['All', 'Urgent', '< 10 min', 'Infrastructure', 'Safety'];
 
-    const markers = [
-        { id: '1', lat: 16.5062, lng: 80.6480, color: 'red' },
-        { id: '2', lat: 16.5100, lng: 80.6400, color: 'orange' },
-        { id: '3', lat: 16.5000, lng: 80.6500, color: 'blue' },
-        { id: '4', lat: 16.5020, lng: 80.6380, color: 'green' },
-    ];
+    useEffect(() => {
+        const q = query(collection(db, 'posts'));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const fetchedPosts = [];
+            snapshot.forEach((doc) => {
+                fetchedPosts.push({ id: doc.id, ...doc.data() });
+            });
+            setPosts(fetchedPosts);
+        }, (error) => {
+            console.error("Firestore Error in MapScreen:", error);
+        });
+        return () => unsubscribe();
+    }, []);
+
+    const getPinColor = (post) => {
+        if (post.status === 'resolved') return 'green';
+        if (post.category === 'Safety') return 'orange';
+        if (post.category === 'Cleanliness') return 'blue';
+        return 'red'; // Default / Infrastructure
+    };
 
     return (
         <View style={styles.container}>
@@ -31,9 +48,24 @@ export default function MapScreen() {
             >
                 <RadarPingMapOverlay coordinate={{ latitude: 16.5062, longitude: 80.6480 }} radius={500} />
 
-                {markers.map(m => (
-                    <Marker key={m.id} coordinate={{ latitude: m.lat, longitude: m.lng }} pinColor={m.color} />
-                ))}
+                {posts.map(post => {
+                    if (!post.location || !post.location.lat || !post.location.lng) return null;
+                    // Optional basic filtering based on the top bar
+                    if (filter !== 'All' && post.category !== filter) return null;
+
+                    return (
+                        <Marker
+                            key={post.id}
+                            coordinate={{ latitude: post.location.lat, longitude: post.location.lng }}
+                            pinColor={getPinColor(post)}
+                            title={post.title}
+                            description="Tap to view details"
+                            onCalloutPress={() => {
+                                if (navigation) navigation.navigate('PostDetail', { postId: post.id })
+                            }}
+                        />
+                    );
+                })}
             </MapView>
 
             <View style={styles.searchContainer}>

@@ -1,13 +1,41 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform, Alert } from 'react-native';
 import { theme } from '../core/theme';
 
 export default function LoginScreen({ navigation }) {
     const [phone, setPhone] = useState('');
+    const [loading, setLoading] = useState(false);
+
+    const handleSendOtp = async () => {
+        if (!phone || phone.length < 10) {
+            Alert.alert("Error", "Please enter a valid 10-digit phone number");
+            return;
+        }
+
+        setLoading(true);
+        try {
+            // Expo Go strongly blocks real Firebase Phone Auth (Recaptcha and APNs certificates).
+            // For this Webathon prototype, we will simulate the SMS delivery UI, 
+            // and use Firebase Email/Password Auth on the backend disguised as a phone number.
+
+            setTimeout(() => {
+                setLoading(false);
+                // In a real app, this navigates after SMS is sent. Here we bypass it.
+                // We pass the raw phone number to the OTP screen to create their account.
+                navigation.navigate('Otp', { phone: phone });
+            }, 1000);
+
+        } catch (error) {
+            console.error("Error sending OTP:", error);
+            Alert.alert("Authentication Error", error.message || "Failed to send OTP. Please try again.");
+            setLoading(false);
+        }
+    };
 
     return (
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
             <View style={styles.content}>
+
                 <Text style={theme.typography.displayLarge}>Enter your phone number</Text>
                 <Text style={[theme.typography.bodyMedium, { marginTop: 8, marginBottom: 48 }]}>
                     We will send you a 4-digit code to verify your account.
@@ -21,14 +49,16 @@ export default function LoginScreen({ navigation }) {
                         placeholder="Phone Number"
                         value={phone}
                         onChangeText={setPhone}
+                        editable={!loading}
                     />
                 </View>
 
                 <TouchableOpacity
-                    style={styles.button}
-                    onPress={() => navigation.navigate('Otp')}
+                    style={[styles.button, loading && { opacity: 0.7 }]}
+                    onPress={handleSendOtp}
+                    disabled={loading}
                 >
-                    <Text style={styles.buttonText}>Send OTP</Text>
+                    <Text style={styles.buttonText}>{loading ? "Sending..." : "Send OTP"}</Text>
                 </TouchableOpacity>
 
                 <View style={styles.dividerContainer}>
@@ -37,7 +67,7 @@ export default function LoginScreen({ navigation }) {
                     <View style={styles.divider} />
                 </View>
 
-                <TouchableOpacity style={styles.googleButton}>
+                <TouchableOpacity style={styles.googleButton} onPress={() => Alert.alert('Notice', 'Google Sign-In requires native iOS/Android builds. Please use Phone Number for this prototype.')}>
                     <Text style={styles.googleText}>Continue with Google</Text>
                 </TouchableOpacity>
             </View>
