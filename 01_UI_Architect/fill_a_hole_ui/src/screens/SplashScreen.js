@@ -1,111 +1,192 @@
-import React, { useRef, useState } from 'react';
-import { View, Text, StyleSheet, Dimensions, TouchableOpacity } from 'react-native';
-import PagerView from 'react-native-pager-view';
+import React from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions, StatusBar } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 export default function SplashScreen({ navigation }) {
-    const pagerRef = useRef(null);
-    const [currentPage, setCurrentPage] = useState(0);
-
-    const pages = [
-        {
-            title: '5 minutes = Real change in your neighbourhood',
-            isFirst: true,
-        },
-        {
-            title: 'How it works',
-            items: [
-                { title: 'Report', sub: 'Snap a photo of the issue' },
-                { title: 'Volunteer', sub: 'Join others to fix it' },
-                { title: 'Impact', sub: 'See your city transform' }
-            ]
-        },
-        {
-            title: 'Choose your role',
-            roles: ['I’m a Citizen / Volunteer', 'I’m an NGO / Authority']
-        }
-    ];
-
     return (
         <View style={styles.container}>
-            <PagerView
-                style={styles.pagerView}
-                initialPage={0}
-                ref={pagerRef}
-                onPageSelected={(e) => setCurrentPage(e.nativeEvent.position)}
-            >
-                {/* Page 1 */}
-                <View key="1" style={styles.page}>
-                    <Text style={styles.title}>{pages[0].title}</Text>
-                    <TouchableOpacity
-                        style={styles.button}
-                        onPress={() => pagerRef.current?.setPage(1)}
-                    >
-                        <Text style={styles.buttonText}>Get Started</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => navigation.replace('Login')}>
-                        <Text style={styles.link}>Already have account? Sign in</Text>
-                    </TouchableOpacity>
-                </View>
+            <StatusBar barStyle="light-content" />
 
-                {/* Page 2 */}
-                <View key="2" style={styles.page}>
-                    <Text style={styles.title}>{pages[1].title}</Text>
-                    {pages[1].items.map((item, i) => (
-                        <View key={i} style={styles.card}>
-                            <Text style={styles.cardTitle}>{item.title}</Text>
-                            <Text style={styles.cardSub}>{item.sub}</Text>
-                        </View>
-                    ))}
-                    <TouchableOpacity
-                        style={styles.button}
-                        onPress={() => pagerRef.current?.setPage(2)}
-                    >
-                        <Text style={styles.buttonText}>Next</Text>
-                    </TouchableOpacity>
-                </View>
+            {/* Background Gradient */}
+            <View style={styles.bgGradient}>
+                <View style={styles.bgCircle1} />
+                <View style={styles.bgCircle2} />
+            </View>
 
-                {/* Page 3 */}
-                <View key="3" style={styles.page}>
-                    <Text style={styles.title}>{pages[2].title}</Text>
-                    {pages[2].roles.map((role, i) => (
-                        <View key={i} style={styles.roleCard}>
-                            <Text style={styles.roleText}>{role}</Text>
-                        </View>
-                    ))}
-                    <TouchableOpacity
-                        style={styles.button}
-                        onPress={() => navigation.replace('Login')}
-                    >
-                        <Text style={styles.buttonText}>Continue</Text>
-                    </TouchableOpacity>
+            {/* Hero Section */}
+            <View style={styles.heroSection}>
+                <View style={styles.logoContainer}>
+                    <Feather name="map-pin" size={48} color="#00C853" />
                 </View>
-            </PagerView>
+                <Text style={styles.appName}>Fill-A-Hole</Text>
+                <Text style={styles.tagline}>
+                    Your neighbourhood's{'\n'}silent problems, solved loud.
+                </Text>
+                <Text style={styles.subTagline}>
+                    Report. Rally. Repair.
+                </Text>
+            </View>
 
-            <View style={styles.dots}>
-                {pages.map((_, idx) => (
-                    <View key={idx} style={[styles.dot, currentPage === idx && styles.activeDot]} />
-                ))}
+            {/* How it works - compact */}
+            <View style={styles.stepsRow}>
+                <View style={styles.stepItem}>
+                    <View style={styles.stepIcon}><Feather name="camera" size={22} color="#00C853" /></View>
+                    <Text style={styles.stepLabel}>Snap It</Text>
+                </View>
+                <Feather name="chevron-right" size={18} color="#555" style={{ marginTop: 8 }} />
+                <View style={styles.stepItem}>
+                    <View style={styles.stepIcon}><Feather name="users" size={22} color="#FF6D00" /></View>
+                    <Text style={styles.stepLabel}>Rally Crew</Text>
+                </View>
+                <Feather name="chevron-right" size={18} color="#555" style={{ marginTop: 8 }} />
+                <View style={styles.stepItem}>
+                    <View style={styles.stepIcon}><Feather name="check-circle" size={22} color="#2979FF" /></View>
+                    <Text style={styles.stepLabel}>Fix It</Text>
+                </View>
+            </View>
+
+            {/* Entry Buttons */}
+            <View style={styles.entrySection}>
+                <Text style={styles.entryTitle}>How will you make an impact?</Text>
+
+                <TouchableOpacity
+                    style={styles.volunteerBtn}
+                    onPress={() => navigation.replace('Login')}
+                    activeOpacity={0.85}
+                >
+                    <View style={styles.btnIconWrap}>
+                        <Feather name="zap" size={24} color="#FFF" />
+                    </View>
+                    <View style={styles.btnTextWrap}>
+                        <Text style={styles.btnTitle}>🦸 Be a Street Hero</Text>
+                        <Text style={styles.btnSub}>Spot issues, rally your crew, fix your hood</Text>
+                    </View>
+                    <Feather name="arrow-right" size={20} color="rgba(255,255,255,0.7)" />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    style={styles.ngoBtn}
+                    onPress={() => navigation.replace('Login')}
+                    activeOpacity={0.85}
+                >
+                    <View style={[styles.btnIconWrap, { backgroundColor: 'rgba(0,200,83,0.15)' }]}>
+                        <Feather name="shield" size={24} color="#00C853" />
+                    </View>
+                    <View style={styles.btnTextWrap}>
+                        <Text style={[styles.btnTitle, { color: '#1A1A1B' }]}>🏛️ Lead the Mission</Text>
+                        <Text style={[styles.btnSub, { color: '#666' }]}>Organize, deploy teams, transform communities</Text>
+                    </View>
+                    <Feather name="arrow-right" size={20} color="#999" />
+                </TouchableOpacity>
+            </View>
+
+            {/* Footer */}
+            <View style={styles.footer}>
+                <TouchableOpacity onPress={() => navigation.replace('Login')}>
+                    <Text style={styles.footerLink}>Already a hero? <Text style={{ fontWeight: 'bold' }}>Sign in</Text></Text>
+                </TouchableOpacity>
             </View>
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#F8F9FA' },
-    pagerView: { flex: 1 },
-    page: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
-    title: { fontSize: 24, fontWeight: 'bold', textAlign: 'center', marginBottom: 32 },
-    button: { backgroundColor: '#00C853', paddingVertical: 16, paddingHorizontal: 32, borderRadius: 12, minWidth: 250, marginBottom: 16 },
-    buttonText: { color: 'white', fontWeight: 'bold', textAlign: 'center', fontSize: 16 },
-    link: { color: '#00C853', fontWeight: 'bold' },
-    card: { backgroundColor: 'white', padding: 16, borderRadius: 12, width: '100%', marginBottom: 12, elevation: 2 },
-    cardTitle: { fontWeight: 'bold', fontSize: 18, marginBottom: 4 },
-    cardSub: { color: '#666' },
-    roleCard: { backgroundColor: 'white', padding: 20, borderRadius: 12, width: '100%', marginBottom: 16, borderWidth: 1, borderColor: '#ccc' },
-    roleText: { fontWeight: 'bold', fontSize: 16 },
-    dots: { flexDirection: 'row', position: 'absolute', bottom: 40, alignSelf: 'center' },
-    dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#ccc', marginHorizontal: 4 },
-    activeDot: { backgroundColor: '#00C853', width: 24 },
+    container: {
+        flex: 1,
+        backgroundColor: '#0D1117',
+    },
+
+    // Background decorations
+    bgGradient: { ...StyleSheet.absoluteFillObject },
+    bgCircle1: {
+        position: 'absolute', top: -80, right: -60,
+        width: 250, height: 250, borderRadius: 125,
+        backgroundColor: 'rgba(0, 200, 83, 0.08)',
+    },
+    bgCircle2: {
+        position: 'absolute', bottom: 100, left: -80,
+        width: 300, height: 300, borderRadius: 150,
+        backgroundColor: 'rgba(41, 121, 255, 0.06)',
+    },
+
+    // Hero
+    heroSection: {
+        alignItems: 'center',
+        paddingTop: height * 0.08,
+        paddingHorizontal: 32,
+    },
+    logoContainer: {
+        width: 80, height: 80, borderRadius: 24,
+        backgroundColor: 'rgba(0, 200, 83, 0.12)',
+        alignItems: 'center', justifyContent: 'center',
+        marginBottom: 20,
+    },
+    appName: {
+        fontSize: 36, fontWeight: '800', color: '#FFFFFF',
+        letterSpacing: 1,
+    },
+    tagline: {
+        fontSize: 18, color: '#B0B3B8',
+        textAlign: 'center', marginTop: 12, lineHeight: 26,
+    },
+    subTagline: {
+        fontSize: 16, color: '#00C853',
+        fontWeight: '700', marginTop: 8, letterSpacing: 2,
+    },
+
+    // Steps Row
+    stepsRow: {
+        flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+        marginTop: 32, marginBottom: 24, paddingHorizontal: 24,
+    },
+    stepItem: { alignItems: 'center', marginHorizontal: 12 },
+    stepIcon: {
+        width: 48, height: 48, borderRadius: 14,
+        backgroundColor: 'rgba(255,255,255,0.06)',
+        alignItems: 'center', justifyContent: 'center',
+        marginBottom: 6,
+    },
+    stepLabel: { fontSize: 12, color: '#B0B3B8', fontWeight: '600' },
+
+    // Entry Section
+    entrySection: { paddingHorizontal: 24, marginTop: 8 },
+    entryTitle: {
+        fontSize: 16, color: '#888',
+        textAlign: 'center', marginBottom: 20, fontWeight: '500',
+    },
+
+    volunteerBtn: {
+        flexDirection: 'row', alignItems: 'center',
+        backgroundColor: '#00C853',
+        borderRadius: 16, padding: 18, marginBottom: 14,
+        elevation: 4,
+        shadowColor: '#00C853', shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3, shadowRadius: 8,
+    },
+    ngoBtn: {
+        flexDirection: 'row', alignItems: 'center',
+        backgroundColor: '#FFFFFF',
+        borderRadius: 16, padding: 18, marginBottom: 14,
+        elevation: 2,
+        shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1, shadowRadius: 4,
+    },
+    btnIconWrap: {
+        width: 48, height: 48, borderRadius: 14,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        alignItems: 'center', justifyContent: 'center',
+        marginRight: 14,
+    },
+    btnTextWrap: { flex: 1 },
+    btnTitle: { fontSize: 17, fontWeight: 'bold', color: '#FFF', marginBottom: 3 },
+    btnSub: { fontSize: 13, color: 'rgba(255,255,255,0.8)' },
+
+    // Footer
+    footer: {
+        position: 'absolute', bottom: 40,
+        width: '100%', alignItems: 'center',
+    },
+    footerLink: { color: '#888', fontSize: 14 },
 });
