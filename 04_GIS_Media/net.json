@@ -1,0 +1,77 @@
+{
+  "Wi-Fi": [
+    {
+      "address": "2401:4900:97cf:b644:9b96:fa7e:4fd7:8db0",
+      "netmask": "ffff:ffff:ffff:ffff::",
+      "family": "IPv6",
+      "mac": "90:78:41:7c:c1:8f",
+      "internal": false,
+      "cidr": "2401:4900:97cf:b644:9b96:fa7e:4fd7:8db0/64",
+      "scopeid": 0
+    },
+    {
+      "address": "2401:4900:97cf:b644:e19b:5bea:168f:274",
+      "netmask": "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff",
+      "family": "IPv6",
+      "mac": "90:78:41:7c:c1:8f",
+      "internal": false,
+      "cidr": "2401:4900:97cf:b644:e19b:5bea:168f:274/128",
+      "scopeid": 0
+    },
+    {
+      "address": "fe80::4dcb:88fa:f1d3:eb30",
+      "netmask": "ffff:ffff:ffff:ffff::",
+      "family": "IPv6",
+      "mac": "90:78:41:7c:c1:8f",
+      "internal": false,
+      "cidr": "fe80::4dcb:88fa:f1d3:eb30/64",
+      "scopeid": 6
+    },
+    {
+      "address": "10.40.125.21",
+      "netmask": "255.255.255.0",
+      "family": "IPv4",
+      "mac": "90:78:41:7c:c1:8f",
+      "internal": false,
+      "cidr": "10.40.125.21/24"
+    }
+  ],
+  "Loopback Pseudo-Interface 1": [
+    {
+      "address": "::1",
+      "netmask": "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff",
+      "family": "IPv6",
+      "mac": "00:00:00:00:00:00",
+      "internal": true,
+      "cidr": "::1/128",
+      "scopeid": 0
+    },
+    {
+      "address": "127.0.0.1",
+      "netmask": "255.0.0.0",
+      "family": "IPv4",
+      "mac": "00:00:00:00:00:00",
+      "internal": true,
+      "cidr": "127.0.0.1/8"
+    }
+  ],
+  "vEthernet (WSL (Hyper-V firewall))": [
+    {
+      "address": "fe80::e696:479a:535d:d889",
+      "netmask": "ffff:ffff:ffff:ffff::",
+      "family": "IPv6",
+      "mac": "00:15:5d:73:b6:95",
+      "internal": false,
+      "cidr": "fe80::e696:479a:535d:d889/64",
+      "scopeid": 44
+    },
+    {
+      "address": "172.20.64.1",
+      "netmask": "255.255.240.0",
+      "family": "IPv4",
+      "mac": "00:15:5d:73:b6:95",
+      "internal": false,
+      "cidr": "172.20.64.1/20"
+    }
+  ]
+}

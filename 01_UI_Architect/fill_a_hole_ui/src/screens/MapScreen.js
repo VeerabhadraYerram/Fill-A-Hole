@@ -1,30 +1,55 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TextInput, ScrollView, TouchableOpacity } from 'react-native';
 import MapView from 'react-native-map-clustering';
 import { Marker } from 'react-native-maps';
+import * as Location from 'expo-location';
 import { theme } from '../core/theme';
 import { RadarPingMapOverlay } from '../components/GeoFencingComponents';
-import { db } from '../core/firebaseConfig';
+import { db, auth } from '../core/firebaseConfig';
 import { collection, query, onSnapshot } from 'firebase/firestore';
 
 export default function MapScreen({ navigation }) {
     const [filter, setFilter] = useState('All');
     const [posts, setPosts] = useState([]);
+    const [userLocation, setUserLocation] = useState({ latitude: 16.5062, longitude: 80.6480 }); // Fallback
+    const mapRef = useRef(null);
     const filters = ['All', 'Urgent', '< 10 min', 'Infrastructure', 'Safety'];
 
     useEffect(() => {
+        (async () => {
+            let { status } = await Location.requestForegroundPermissionsAsync();
+            if (status !== 'granted') return;
+            let location = await Location.getCurrentPositionAsync({});
+            setUserLocation({ latitude: location.coords.latitude, longitude: location.coords.longitude });
+        })();
+
         const q = query(collection(db, 'posts'));
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const fetchedPosts = [];
+            const currentUser = auth.currentUser;
             snapshot.forEach((doc) => {
-                fetchedPosts.push({ id: doc.id, ...doc.data() });
+                const data = doc.data();
+                if (data.status === 'flagged' && data.authorId !== currentUser?.uid) {
+                    return;
+                }
+                fetchedPosts.push({ id: doc.id, ...data });
             });
             setPosts(fetchedPosts);
-        }, (error) => {
-            console.error("Firestore Error in MapScreen:", error);
-        });
+        }, (error) => console.error("Firestore Error in MapScreen:", error));
+
         return () => unsubscribe();
     }, []);
+
+    const goToMyLocation = () => {
+        if (mapRef.current) {
+            mapRef.current.animateToRegion({
+                latitude: userLocation.latitude,
+                longitude: userLocation.longitude,
+                latitudeDelta: 0.05,
+                longitudeDelta: 0.05,
+            }, 1000);
+        }
+    };
 
     const getPinColor = (post) => {
         if (post.status === 'resolved') return 'green';
@@ -36,27 +61,31 @@ export default function MapScreen({ navigation }) {
     return (
         <View style={styles.container}>
             <MapView
+                ref={mapRef}
                 style={styles.map}
                 initialRegion={{
-                    latitude: 16.5062,
-                    longitude: 80.6480,
+                    latitude: userLocation.latitude,
+                    longitude: userLocation.longitude,
                     latitudeDelta: 0.05,
                     longitudeDelta: 0.05,
                 }}
                 clusterColor={theme.colors.primaryGreen}
                 showsUserLocation={true}
+                showsMyLocationButton={false}
             >
-                <RadarPingMapOverlay coordinate={{ latitude: 16.5062, longitude: 80.6480 }} radius={500} />
+                <RadarPingMapOverlay coordinate={userLocation} radius={500} />
 
                 {posts.map(post => {
-                    if (!post.location || !post.location.lat || !post.location.lng) return null;
-                    // Optional basic filtering based on the top bar
+                    if (!post.location || (!post.location.lat && !post.location.latitude) || (!post.location.lng && !post.location.longitude)) return null;
                     if (filter !== 'All' && post.category !== filter) return null;
+
+                    const lat = post.location.lat || post.location.latitude;
+                    const lng = post.location.lng || post.location.longitude;
 
                     return (
                         <Marker
                             key={post.id}
-                            coordinate={{ latitude: post.location.lat, longitude: post.location.lng }}
+                            coordinate={{ latitude: lat, longitude: lng }}
                             pinColor={getPinColor(post)}
                             title={post.title}
                             description="Tap to view details"
@@ -93,7 +122,7 @@ export default function MapScreen({ navigation }) {
                 </View>
             </View>
 
-            <TouchableOpacity style={styles.myLocationBtn}>
+            <TouchableOpacity style={styles.myLocationBtn} onPress={goToMyLocation}>
                 <Text style={styles.locationIcon}>📍</Text>
             </TouchableOpacity>
         </View>

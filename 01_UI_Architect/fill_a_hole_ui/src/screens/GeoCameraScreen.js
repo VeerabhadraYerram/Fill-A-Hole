@@ -31,14 +31,21 @@ export default function GeoCameraScreen({ navigation }) {
     }
 
     const takePicture = async () => {
-        if (gpsAccuracy > 50) {
+        if (gpsAccuracy > 1000) {
             alert('GPS Signal too weak to verify location. Please move to an open area.');
             return;
         }
         if (cameraRef) {
-            const photo = await cameraRef.takePictureAsync();
-            // Proceed to Verification Status Screen
-            navigation.navigate('VerificationStatus', { photoUri: photo.uri, location: location.coords });
+            // Enable base64 so we can pass the raw image to Vision AI
+            const photo = await cameraRef.takePictureAsync({ exif: true, base64: true, quality: 0.1 });
+
+            // Return to CreatePost Wizard with the photo, location, and metadata
+            navigation.navigate('CreatePost', {
+                capturedPhotoUri: photo.uri,
+                capturedLocation: location.coords,
+                capturedExif: photo.exif,
+                capturedBase64: photo.base64
+            });
         }
     };
 
@@ -67,13 +74,13 @@ export default function GeoCameraScreen({ navigation }) {
 
                         <View style={styles.shutterContainer}>
                             <TouchableOpacity
-                                style={[styles.shutterBtn, gpsAccuracy > 50 && styles.shutterBtnDisabled]}
+                                style={[styles.shutterBtn, gpsAccuracy > 1000 && styles.shutterBtnDisabled]}
                                 onPress={takePicture}
-                                disabled={gpsAccuracy > 50}
+                                disabled={gpsAccuracy > 1000}
                             >
-                                <View style={[styles.shutterInner, gpsAccuracy > 50 && styles.shutterInnerDisabled]} />
+                                <View style={[styles.shutterInner, gpsAccuracy > 1000 && styles.shutterInnerDisabled]} />
                             </TouchableOpacity>
-                            {gpsAccuracy > 50 && <Text style={styles.warningText}>Waiting for GPS Lock...</Text>}
+                            {gpsAccuracy > 1000 && <Text style={styles.warningText}>Waiting for GPS Lock...</Text>}
                         </View>
                     </View>
                 </View>

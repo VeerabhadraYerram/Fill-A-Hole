@@ -3,19 +3,49 @@ import { View, Text, StyleSheet, Image, FlatList, TouchableOpacity, RefreshContr
 import { Feather } from '@expo/vector-icons';
 import { theme } from '../core/theme';
 import { VerificationBadge, AIResourceSuggestionChip } from '../components/TrustAIComponents';
-import { db } from '../core/firebaseConfig';
-import { collection, query, orderBy, onSnapshot } from 'firebase/firestore';
+import { db, auth } from '../core/firebaseConfig';
+import { collection, query, orderBy, onSnapshot, doc, getDoc } from 'firebase/firestore';
 
 export default function HomeDashboard({ navigation }) {
     const [refreshing, setRefreshing] = useState(false);
     const [posts, setPosts] = useState([]);
+    const [userName, setUserName] = useState('there');
+    const [userCity, setUserCity] = useState('your area');
+    const [userAvatar, setUserAvatar] = useState(null);
+
+    const getGreeting = () => {
+        const hour = new Date().getHours();
+        if (hour < 12) return 'Good morning';
+        if (hour < 17) return 'Good afternoon';
+        return 'Good evening';
+    };
+
+    // Load current user profile from Firestore
+    useEffect(() => {
+        const user = auth.currentUser;
+        if (!user) return;
+        getDoc(doc(db, 'users', user.uid)).then((snap) => {
+            if (snap.exists()) {
+                const data = snap.data();
+                if (data.displayName) setUserName(data.displayName.split(' ')[0]); // First name only
+                if (data.city) setUserCity(data.city);
+                if (data.photoURL) setUserAvatar(data.photoURL);
+            }
+        }).catch(console.error);
+    }, []);
 
     useEffect(() => {
         const q = query(collection(db, 'posts'), orderBy('createdAt', 'desc'));
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const fetchedPosts = [];
+            const currentUser = auth.currentUser;
             snapshot.forEach((doc) => {
-                fetchedPosts.push({ id: doc.id, ...doc.data() });
+                const data = doc.data();
+                // Hide flagged posts unless the current user is the author
+                if (data.status === 'flagged' && data.authorId !== currentUser?.uid) {
+                    return;
+                }
+                fetchedPosts.push({ id: doc.id, ...data });
             });
             setPosts(fetchedPosts);
         }, (error) => {
@@ -35,20 +65,23 @@ export default function HomeDashboard({ navigation }) {
         <View style={styles.container}>
             <View style={styles.header}>
                 <View>
-                    <Text style={styles.greeting}>Good morning, Koushik 👋</Text>
-                    <Text style={styles.location}>📍 Vijayawada, AP</Text>
+                    <Text style={styles.greeting}>{getGreeting()}, {userName} 👋</Text>
+                    <Text style={styles.location}>📍 {userCity}</Text>
                 </View>
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                     <TouchableOpacity onPress={() => navigation.navigate('NGOForms')} style={{ marginRight: 12, backgroundColor: '#E8F5E9', padding: 8, borderRadius: 16 }}>
                         <Text style={{ color: '#2E7D32', fontSize: 12, fontWeight: 'bold' }}>NGO Portal</Text>
                     </TouchableOpacity>
-                    <Image style={styles.avatar} source={{ uri: 'https://via.placeholder.com/150' }} />
+                    <Image
+                        style={styles.avatar}
+                        source={{ uri: userAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(userName)}&background=00C853&color=fff&size=150` }}
+                    />
                 </View>
             </View>
 
             <View style={styles.feedContainer}>
                 <View style={styles.sheetHeader}>
-                    <Text style={theme.typography.displayMedium}>Top Issues in Vijayawada</Text>
+                    <Text style={theme.typography.displayMedium}>Issues in {userCity}</Text>
                     <TouchableOpacity onPress={() => navigation.navigate('Map')}><Text style={styles.seeAll}>Map View</Text></TouchableOpacity>
                 </View>
 

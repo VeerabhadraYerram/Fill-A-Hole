@@ -1,34 +1,54 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image } from 'react-native';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { theme } from '../core/theme';
 import { VerificationBadge } from '../components/TrustAIComponents';
+import { db } from '../core/firebaseConfig';
+import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 
 const FeedList = ({ navigation }) => {
+    const [posts, setPosts] = useState([]);
+
+    useEffect(() => {
+        const q = query(collection(db, 'posts'), orderBy('createdAt', 'desc'));
+        const unsubscribe = onSnapshot(q, (snapshot) => {
+            const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            setPosts(data);
+        });
+        return () => unsubscribe();
+    }, []);
+
     return (
         <FlatList
-            data={[1, 2, 3, 4, 5]}
-            keyExtractor={item => item.toString()}
+            data={posts}
+            keyExtractor={item => item.id}
             contentContainerStyle={{ padding: 16 }}
+            ListEmptyComponent={<Text style={{ textAlign: 'center', marginTop: 20, color: '#888' }}>No posts yet. Be the first to report!</Text>}
             renderItem={({ item }) => (
-                <TouchableOpacity activeOpacity={0.8} onPress={() => navigation.navigate('PostDetail')}>
+                <TouchableOpacity activeOpacity={0.8} onPress={() => navigation.navigate('PostDetail', { postId: item.id })}>
                     <View style={styles.postCard}>
-                        <Image source={{ uri: 'https://via.placeholder.com/100' }} style={styles.postImage} />
+                        {item.mediaUrls && item.mediaUrls.length > 0 ? (
+                            <Image source={{ uri: item.mediaUrls[0] }} style={styles.postImage} />
+                        ) : (
+                            <View style={[styles.postImage, { backgroundColor: '#E0E0E0', justifyContent: 'center', alignItems: 'center' }]}>
+                                <Text style={{ color: '#888', fontSize: 10 }}>No Image</Text>
+                            </View>
+                        )}
                         <View style={styles.postContent}>
                             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                <Text style={styles.postTitle}>Huge Pothole causing traffic</Text>
-                                <VerificationBadge score={92} />
+                                <Text style={styles.postTitle} numberOfLines={2}>{item.title || "Untitled Issue"}</Text>
+                                {item.verificationData?.isVerified && <VerificationBadge score={item.verificationData?.trustScore || 0} />}
                             </View>
-                            <Text style={styles.postMeta}>📍 1.2 km away • 2 hrs ago</Text>
+                            <Text style={styles.postMeta}>📍 Near You • {item.createdAt ? new Date(item.createdAt.toDate()).toLocaleDateString() : 'Just now'}</Text>
 
                             <View style={styles.tagsRow}>
-                                <View style={styles.tagSafety}><Text style={styles.tagSafetyText}>Safety</Text></View>
-                                <View style={styles.tagCommunity}><Text style={styles.tagCommunityText}>Community Solvable</Text></View>
+                                <View style={styles.tagSafety}><Text style={styles.tagSafetyText}>{item.category || "General"}</Text></View>
+                                {item.isCommunitySolvable && <View style={styles.tagCommunity}><Text style={styles.tagCommunityText}>Community Solvable</Text></View>}
                             </View>
 
                             <View style={styles.postFooter}>
-                                <Text style={styles.volunteerText}>👥 3 volunteers joined</Text>
-                                <Text style={styles.upvoteText}>❤️ 124</Text>
+                                <Text style={styles.volunteerText}>💬 {item.metrics?.commentCount || 0} comments</Text>
+                                <Text style={styles.upvoteText}>❤️ {item.metrics?.upvotes || 0}</Text>
                             </View>
                         </View>
                     </View>

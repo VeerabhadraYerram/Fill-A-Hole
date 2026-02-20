@@ -1,33 +1,79 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform, Alert } from 'react-native';
+import { View, Text, TextInput, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform, Alert, ActivityIndicator } from 'react-native';
 import { theme } from '../core/theme';
+import { auth, db } from '../core/firebaseConfig';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 
 export default function LoginScreen({ navigation }) {
-    const [phone, setPhone] = useState('');
+    const [isLogin, setIsLogin] = useState(true);
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
 
-    const handleSendOtp = async () => {
-        if (!phone || phone.length < 10) {
-            Alert.alert("Error", "Please enter a valid 10-digit phone number");
+    const handleAuth = async () => {
+        if (!email.trim() || !password.trim()) {
+            Alert.alert("Required", "Please enter both email and password.");
+            return;
+        }
+        if (password.length < 7) {
+            Alert.alert("Invalid Password", "Password must be at least 7 characters long.");
             return;
         }
 
         setLoading(true);
         try {
-            // Expo Go strongly blocks real Firebase Phone Auth (Recaptcha and APNs certificates).
-            // For this Webathon prototype, we will simulate the SMS delivery UI, 
-            // and use Firebase Email/Password Auth on the backend disguised as a phone number.
-
-            setTimeout(() => {
+            if (isLogin) {
+                // Login Flow
+                const userCredential = await signInWithEmailAndPassword(auth, email.trim(), password);
+                const userDoc = await getDoc(doc(db, 'users', userCredential.user.uid));
                 setLoading(false);
-                // In a real app, this navigates after SMS is sent. Here we bypass it.
-                // We pass the raw phone number to the OTP screen to create their account.
-                navigation.navigate('Otp', { phone: phone });
-            }, 1000);
 
+                if (!userDoc.exists() || !userDoc.data()?.profileComplete) {
+                    navigation.reset({ index: 0, routes: [{ name: 'Registration' }] });
+                } else {
+                    navigation.reset({ index: 0, routes: [{ name: 'Main' }] });
+                }
+            } else {
+                // Sign Up Flow
+                const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
+
+                // Initialize user document in Firestore
+                await setDoc(doc(db, 'users', userCredential.user.uid), {
+                    email: email.trim(),
+                    role: 'citizen',
+                    level: 1,
+                    xp: 0,
+                    streakDays: 0,
+                    stats: {
+                        issuesReported: 0,
+                        tasksCompleted: 0,
+                        peopleHelped: 0,
+                        civicCoins: 0,
+                    },
+                    createdAt: serverTimestamp(),
+                    lastActive: serverTimestamp(),
+                    profileComplete: false,
+                });
+
+                setLoading(false);
+                Alert.alert("Success", "Account created successfully! Please complete your profile.", [
+                    { text: "OK", onPress: () => navigation.reset({ index: 0, routes: [{ name: 'Registration' }] }) }
+                ]);
+            }
         } catch (error) {
-            console.error("Error sending OTP:", error);
-            Alert.alert("Authentication Error", error.message || "Failed to send OTP. Please try again.");
+            console.error("Auth Error:", error);
+            let msg = "Authentication failed. Please try again.";
+            if (error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
+                msg = "Invalid email or password.";
+            } else if (error.code === 'auth/email-already-in-use') {
+                msg = "This email is already registered. Please sign in.";
+            } else if (error.code === 'auth/invalid-email') {
+                msg = "Please enter a valid email address.";
+            } else if (error.code === 'auth/weak-password') {
+                msg = "Password is too weak. Please use a stronger password.";
+            }
+            Alert.alert("Error", msg);
             setLoading(false);
         }
     };
@@ -36,56 +82,91 @@ export default function LoginScreen({ navigation }) {
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
             <View style={styles.content}>
 
-                <Text style={theme.typography.displayLarge}>Enter your phone number</Text>
-                <Text style={[theme.typography.bodyMedium, { marginTop: 8, marginBottom: 48 }]}>
-                    We will send you a 4-digit code to verify your account.
+                <Text style={theme.typography.displayLarge}>
+                    {isLogin ? "Welcome back" : "Create an account"}
+                </Text>
+                <Text style={[theme.typography.bodyMedium, { marginTop: 8, marginBottom: 40 }]}>
+                    {isLogin
+                        ? "Sign in to continue making an impact."
+                        : "Join the community and start fixing your neighborhood."}
                 </Text>
 
                 <View style={styles.inputContainer}>
-                    <Text style={styles.prefix}>+91</Text>
+                    <Text style={styles.inputIcon}>✉️</Text>
                     <TextInput
                         style={styles.input}
-                        keyboardType="phone-pad"
-                        placeholder="Phone Number"
-                        value={phone}
-                        onChangeText={setPhone}
+                        placeholder="Email Address"
+                        value={email}
+                        onChangeText={setEmail}
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        editable={!loading}
+                    />
+                </View>
+
+                <View style={styles.inputContainer}>
+                    <Text style={styles.inputIcon}>🔒</Text>
+                    <TextInput
+                        style={styles.input}
+                        placeholder={isLogin ? "Password" : "Password (min 7 characters)"}
+                        value={password}
+                        onChangeText={setPassword}
+                        secureTextEntry
+                        autoCapitalize="none"
                         editable={!loading}
                     />
                 </View>
 
                 <TouchableOpacity
                     style={[styles.button, loading && { opacity: 0.7 }]}
-                    onPress={handleSendOtp}
+                    onPress={handleAuth}
                     disabled={loading}
                 >
-                    <Text style={styles.buttonText}>{loading ? "Sending..." : "Send OTP"}</Text>
+                    {loading ? (
+                        <ActivityIndicator size="small" color="white" />
+                    ) : (
+                        <Text style={styles.buttonText}>{isLogin ? "Sign In" : "Sign Up"}</Text>
+                    )}
                 </TouchableOpacity>
 
-                <View style={styles.dividerContainer}>
-                    <View style={styles.divider} />
-                    <Text style={styles.or}>OR</Text>
-                    <View style={styles.divider} />
+                <View style={styles.toggleContainer}>
+                    <Text style={styles.toggleText}>
+                        {isLogin ? "Don't have an account? " : "Already have an account? "}
+                    </Text>
+                    <TouchableOpacity onPress={() => { setIsLogin(!isLogin); setEmail(''); setPassword(''); }}>
+                        <Text style={styles.toggleLink}>
+                            {isLogin ? "Sign Up" : "Sign In"}
+                        </Text>
+                    </TouchableOpacity>
                 </View>
 
-                <TouchableOpacity style={styles.googleButton} onPress={() => Alert.alert('Notice', 'Google Sign-In requires native iOS/Android builds. Please use Phone Number for this prototype.')}>
-                    <Text style={styles.googleText}>Continue with Google</Text>
-                </TouchableOpacity>
             </View>
         </KeyboardAvoidingView>
     );
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: theme.colors.background },
+    container: { flex: 1, backgroundColor: '#FAFAFA' },
     content: { flex: 1, padding: 24, justifyContent: 'center' },
-    inputContainer: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#ccc', borderRadius: 12, paddingHorizontal: 16, height: 56, marginBottom: 24, backgroundColor: 'white' },
-    prefix: { fontSize: 16, fontWeight: 'bold', marginRight: 8 },
-    input: { flex: 1, fontSize: 16 },
-    button: { backgroundColor: theme.colors.primaryGreen, height: 56, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+    inputContainer: {
+        flexDirection: 'row', alignItems: 'center',
+        borderWidth: 1.5, borderColor: '#E0E0E0', borderRadius: 12,
+        paddingHorizontal: 16, height: 56, marginBottom: 16,
+        backgroundColor: 'white'
+    },
+    inputIcon: { fontSize: 18, marginRight: 12 },
+    input: { flex: 1, fontSize: 16, color: '#1A1A1A' },
+    button: {
+        backgroundColor: theme.colors.primaryGreen,
+        height: 56, borderRadius: 12,
+        justifyContent: 'center', alignItems: 'center',
+        marginTop: 16,
+    },
     buttonText: { color: 'white', fontSize: 16, fontWeight: 'bold' },
-    dividerContainer: { flexDirection: 'row', alignItems: 'center', marginVertical: 32 },
-    divider: { flex: 1, height: 1, backgroundColor: '#ccc' },
-    or: { marginHorizontal: 16, color: '#666', fontWeight: 'bold' },
-    googleButton: { height: 56, borderRadius: 12, borderWidth: 1, borderColor: '#ccc', justifyContent: 'center', alignItems: 'center', backgroundColor: 'white' },
-    googleText: { fontSize: 16, fontWeight: 'bold', color: '#333' },
+    toggleContainer: {
+        flexDirection: 'row', justifyContent: 'center', marginTop: 32
+    },
+    toggleText: { color: '#666', fontSize: 14 },
+    toggleLink: { color: theme.colors.primaryGreen, fontWeight: 'bold', fontSize: 14 }
 });

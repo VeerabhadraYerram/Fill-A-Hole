@@ -1,0 +1,28 @@
+{
+  "name": "04-gis-media",
+  "version": "1.0.0",
+  "description": "Geospatial media middleware for Fill-A-Hole — maps, camera GPS lock, EXIF validation, verification flow, double-click navigation",
+  "main": "src/index.js",
+  "scripts": {
+    "verify": "node -e \"require('./src/services/ExifValidator'); require('./src/services/VerificationService'); require('./src/utils/colorMapper'); require('./src/utils/distanceCalculator'); require('./src/utils/gpsHelpers'); console.log('All modules loaded OK')\""
+  },
+  "dependencies": {
+    "axios": "^1.6.7",
+    "expo": "^54.0.33",
+    "expo-blur": "~15.0.8",
+    "expo-camera": "^17.0.10",
+    "expo-linear-gradient": "~15.0.8",
+    "haversine-distance": "^1.1.5",
+    "qrcode": "^1.5.4"
+  },
+  "peerDependencies": {
+    "expo-location": "^19.0.8",
+    "react": "^19.2.4",
+    "react-native": "^0.84.0",
+    "react-native-maps": "^1.27.1"
+  },
+  "private": true,
+  "devDependencies": {
+    "@expo/ngrok": "^4.1.3"
+  }
+}
