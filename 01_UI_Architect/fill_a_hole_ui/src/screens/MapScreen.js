@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, ScrollView, TouchableOpacity } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
+import MapView from 'react-native-map-clustering';
+import { Marker } from 'react-native-maps';
 import { theme } from '../core/theme';
+import { RadarPingMapOverlay } from '../components/GeoFencingComponents';
 
 export default function MapScreen() {
     const [filter, setFilter] = useState('All');
@@ -24,8 +26,11 @@ export default function MapScreen() {
                     latitudeDelta: 0.05,
                     longitudeDelta: 0.05,
                 }}
+                clusterColor={theme.colors.primaryGreen}
                 showsUserLocation={true}
             >
+                <RadarPingMapOverlay coordinate={{ latitude: 16.5062, longitude: 80.6480 }} radius={500} />
+
                 {markers.map(m => (
                     <Marker key={m.id} coordinate={{ latitude: m.lat, longitude: m.lng }} pinColor={m.color} />
                 ))}

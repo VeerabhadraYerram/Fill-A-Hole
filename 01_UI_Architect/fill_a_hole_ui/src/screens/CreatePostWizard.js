@@ -1,12 +1,21 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { View, Text, TextInput, StyleSheet, TouchableOpacity, ScrollView, Switch } from 'react-native';
 import PagerView from 'react-native-pager-view';
 import { theme } from '../core/theme';
+import { AILoadingIndicator, AIResourceSuggestionChip } from '../components/TrustAIComponents';
 
 export default function CreatePostWizard({ navigation }) {
     const pagerRef = useRef(null);
     const [step, setStep] = useState(0);
     const [communitySolvable, setCommunitySolvable] = useState(false);
+    const [aiSuggesting, setAiSuggesting] = useState(false);
+
+    useEffect(() => {
+        if (communitySolvable) {
+            setAiSuggesting(true);
+            setTimeout(() => setAiSuggesting(false), 2000);
+        }
+    }, [communitySolvable]);
 
     const nextStep = () => {
         if (step < 3) {
@@ -47,22 +56,23 @@ export default function CreatePostWizard({ navigation }) {
                 scrollEnabled={false}
                 onPageSelected={(e) => setStep(e.nativeEvent.position)}
             >
-                {/* Step 1: Photo & Location */}
+                {/* Step 1: GeoCamera Link */}
                 <View key="0" style={styles.page}>
-                    <Text style={theme.typography.displayLarge}>Photo & Location</Text>
-                    <View style={styles.photoGrid}>
-                        <TouchableOpacity style={styles.addPhotoCard}>
-                            <Text style={{ fontSize: 32, color: 'grey' }}>📷</Text>
-                            <Text style={{ color: 'grey' }}>Add Photo</Text>
-                        </TouchableOpacity>
-                    </View>
+                    <Text style={theme.typography.displayLarge}>Acquire Evidence</Text>
+
+                    <Text style={{ color: '#666', marginTop: 16, marginBottom: 24 }}>
+                        To ensure high trust scores and instant verification, civic issues must be reported using our Secure GeoCamera.
+                    </Text>
+
+                    <TouchableOpacity style={styles.geoCameraBtn} onPress={() => navigation.navigate('GeoCamera')}>
+                        <Text style={{ fontSize: 32 }}>📸</Text>
+                        <Text style={styles.geoCameraBtnText}>Launch Secure GeoCamera</Text>
+                        <Text style={{ color: 'white', opacity: 0.8, fontSize: 10, marginTop: 4 }}>Requires GPS Lock & Non-Edited Photos</Text>
+                    </TouchableOpacity>
+
                     <View style={styles.gpsBanner}>
                         <Text style={styles.gpsIcon}>✅</Text>
-                        <Text style={styles.gpsText}>Location fetched from GPS successfully.</Text>
-                    </View>
-                    <Text style={[theme.typography.displayMedium, { marginTop: 24, marginBottom: 8 }]}>Location</Text>
-                    <View style={styles.mapSnippet}>
-                        <Text style={{ color: '#666' }}>Map Snippet Placeholder</Text>
+                        <Text style={styles.gpsText}>Evidence Verified. Trust Score: 96/100</Text>
                     </View>
                 </View>
 
@@ -101,7 +111,17 @@ export default function CreatePostWizard({ navigation }) {
                         <Switch value={communitySolvable} onValueChange={setCommunitySolvable} thumbColor={theme.colors.primaryGreen} trackColor={{ true: 'rgba(0, 200, 83, 0.4)' }} />
                     </View>
                     {communitySolvable && (
-                        <Text style={styles.aiSuggestion}>🤖 AI Suggestion: Requires 3 volunteers + 2 bags of gravel</Text>
+                        <View style={{ marginTop: 12 }}>
+                            {aiSuggesting ? <AILoadingIndicator /> : (
+                                <>
+                                    <Text style={{ fontSize: 12, color: '#666', marginBottom: 8 }}>AI Suggested Requirements:</Text>
+                                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                                        <AIResourceSuggestionChip suggestion="3 Volunteers" />
+                                        <AIResourceSuggestionChip suggestion="2 Bags of Gravel" />
+                                    </View>
+                                </>
+                            )}
+                        </View>
                     )}
                 </ScrollView>
 
@@ -125,12 +145,12 @@ export default function CreatePostWizard({ navigation }) {
                         )}
                     </View>
                 </View>
-            </PagerView>
+            </PagerView >
 
             <TouchableOpacity style={styles.bottomBtn} onPress={nextStep}>
                 <Text style={styles.bottomBtnText}>{step === 3 ? 'Submit Report' : 'Next'}</Text>
             </TouchableOpacity>
-        </View>
+        </View >
     );
 }
 
@@ -151,12 +171,12 @@ const styles = StyleSheet.create({
     pagerView: { flex: 1 },
     page: { flex: 1, padding: 24 },
     pageScroll: { flex: 1, padding: 24 },
-    photoGrid: { flexDirection: 'row', marginTop: 24 },
-    addPhotoCard: { flex: 1, height: 120, backgroundColor: '#F8F9FA', borderWidth: 1, borderColor: '#DDD', borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+    geoCameraBtn: { backgroundColor: '#1A1A1A', padding: 24, borderRadius: 16, alignItems: 'center', justifyContent: 'center', marginVertical: 16 },
+    geoCameraBtnText: { color: 'white', fontWeight: 'bold', fontSize: 16, marginTop: 12 },
     gpsBanner: { flexDirection: 'row', backgroundColor: '#E8F5E9', padding: 12, borderRadius: 8, marginTop: 16, alignItems: 'center' },
     gpsIcon: { color: theme.colors.primaryGreen, marginRight: 8 },
     gpsText: { color: '#333' },
-    mapSnippet: { flex: 1, backgroundColor: '#EEEEEE', borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+    mapSnippet: { height: 120, backgroundColor: '#EEEEEE', borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
     categoryGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginTop: 24 },
     catCard: { width: '48%', backgroundColor: 'white', borderWidth: 1, borderColor: '#DDD', borderRadius: 12, padding: 16, alignItems: 'center', marginBottom: 16 },
     catCardSelected: { borderColor: theme.colors.primaryGreen, backgroundColor: 'rgba(0, 200, 83, 0.1)' },

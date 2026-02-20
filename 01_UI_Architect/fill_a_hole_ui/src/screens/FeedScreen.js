@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image } from 'react-native';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { theme } from '../core/theme';
+import { VerificationBadge } from '../components/TrustAIComponents';
 
 const FeedList = ({ navigation }) => {
     return (
@@ -14,7 +15,10 @@ const FeedList = ({ navigation }) => {
                     <View style={styles.postCard}>
                         <Image source={{ uri: 'https://via.placeholder.com/100' }} style={styles.postImage} />
                         <View style={styles.postContent}>
-                            <Text style={styles.postTitle}>Huge Pothole causing traffic</Text>
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                <Text style={styles.postTitle}>Huge Pothole causing traffic</Text>
+                                <VerificationBadge score={92} />
+                            </View>
                             <Text style={styles.postMeta}>📍 1.2 km away • 2 hrs ago</Text>
 
                             <View style={styles.tagsRow}>
@@ -65,7 +69,7 @@ const styles = StyleSheet.create({
     postCard: { flexDirection: 'row', backgroundColor: 'white', borderRadius: 12, padding: 12, marginBottom: 16, elevation: 3, shadowColor: '#000', shadowOpacity: 0.1, shadowOffset: { width: 0, height: 2 } },
     postImage: { width: 100, height: 100, borderRadius: 8 },
     postContent: { flex: 1, marginLeft: 12 },
-    postTitle: { fontWeight: 'bold', fontSize: 16 },
+    postTitle: { fontWeight: 'bold', fontSize: 16, flex: 1, marginRight: 8 },
     postMeta: { color: '#666', fontSize: 12, marginTop: 4 },
     tagsRow: { flexDirection: 'row', marginTop: 8 },
     tagSafety: { backgroundColor: 'rgba(255, 152, 0, 0.1)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, marginRight: 8 },

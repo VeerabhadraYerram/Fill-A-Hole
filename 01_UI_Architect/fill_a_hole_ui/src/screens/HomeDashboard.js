@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, Image, ScrollView, TouchableOpacity } from 'rea
 import MapView, { Marker } from 'react-native-maps';
 import { theme } from '../core/theme';
 
-export default function HomeDashboard() {
+export default function HomeDashboard({ navigation }) {
     const initialRegion = {
         latitude: 16.5062,
         longitude: 80.6480,
@@ -18,7 +18,12 @@ export default function HomeDashboard() {
                     <Text style={styles.greeting}>Good morning, Koushik 👋</Text>
                     <Text style={styles.location}>📍 Vijayawada, AP</Text>
                 </View>
-                <Image style={styles.avatar} source={{ uri: 'https://via.placeholder.com/150' }} />
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <TouchableOpacity onPress={() => navigation.navigate('NGOForms')} style={{ marginRight: 12, backgroundColor: '#E8F5E9', padding: 8, borderRadius: 16 }}>
+                        <Text style={{ color: '#2E7D32', fontSize: 12, fontWeight: 'bold' }}>NGO Portal</Text>
+                    </TouchableOpacity>
+                    <Image style={styles.avatar} source={{ uri: 'https://via.placeholder.com/150' }} />
+                </View>
             </View>
 
             <View style={styles.mapContainer}>
@@ -31,7 +36,7 @@ export default function HomeDashboard() {
                 <View style={styles.handle} />
                 <View style={styles.sheetHeader}>
                     <Text style={theme.typography.displayMedium}>Hot Issues Near You</Text>
-                    <TouchableOpacity><Text style={styles.seeAll}>See all</Text></TouchableOpacity>
+                    <TouchableOpacity onPress={() => navigation.navigate('IssuesList')}><Text style={styles.seeAll}>See all</Text></TouchableOpacity>
                 </View>
 
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.cardsScroll}>

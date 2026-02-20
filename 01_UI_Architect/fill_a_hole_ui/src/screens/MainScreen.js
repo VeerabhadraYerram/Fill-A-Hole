@@ -19,14 +19,14 @@ export default function MainScreen({ navigation }) {
                     tabBarActiveTintColor: theme.colors.primaryGreen,
                     tabBarInactiveTintColor: 'gray',
                     headerShown: false,
-                    tabBarStyle: { height: 60, paddingBottom: 8, paddingTop: 8 }
+                    tabBarStyle: { height: 80, paddingBottom: 24, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#EEE' }
                 }}
             >
-                <Tab.Screen name="Home" component={HomeDashboard} options={{ tabBarIcon: () => <Text>🏠</Text> }} />
-                <Tab.Screen name="Map" component={MapScreenView} options={{ tabBarIcon: () => <Text>🗺️</Text> }} />
+                <Tab.Screen name="Home" component={HomeDashboard} options={{ tabBarIcon: () => <Text style={{ fontSize: 20 }}>🏠</Text> }} />
+                <Tab.Screen name="Map" component={MapScreenView} options={{ tabBarIcon: () => <Text style={{ fontSize: 20 }}>🗺️</Text> }} />
                 <Tab.Screen name="Feed" component={FeedScreen} options={{ tabBarButton: () => null }} />
-                <Tab.Screen name="Messages" component={MessagesScreen} options={{ tabBarIcon: () => <Text>💬</Text> }} />
-                <Tab.Screen name="Profile" component={ProfileScreen} options={{ tabBarIcon: () => <Text>👤</Text> }} />
+                <Tab.Screen name="Messages" component={MessagesScreen} options={{ tabBarIcon: () => <Text style={{ fontSize: 20 }}>💬</Text> }} />
+                <Tab.Screen name="Profile" component={ProfileScreen} options={{ tabBarIcon: () => <Text style={{ fontSize: 20 }}>👤</Text> }} />
             </Tab.Navigator>
 
             {/* Floating Action Button for Create Post */}
@@ -41,7 +41,7 @@ export default function MainScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-    fabContainer: { position: 'absolute', bottom: 80, alignSelf: 'center', zIndex: 10 },
+    fabContainer: { position: 'absolute', bottom: 100, alignSelf: 'center', zIndex: 10 },
     fab: { backgroundColor: theme.colors.primaryGreen, flexDirection: 'row', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 30, elevation: 5, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, alignItems: 'center' },
     fabIcon: { color: 'white', fontSize: 24, fontWeight: 'bold', marginRight: 8, lineHeight: 28 },
     fabText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
