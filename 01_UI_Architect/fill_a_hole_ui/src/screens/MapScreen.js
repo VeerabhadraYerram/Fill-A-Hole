@@ -87,8 +87,8 @@ export default function MapScreen({ navigation }) {
                             key={post.id}
                             coordinate={{ latitude: lat, longitude: lng }}
                             pinColor={getPinColor(post)}
-                            title={post.title}
-                            description="Tap to view details"
+                            title={post.sponsors && post.sponsors.length > 0 ? `❤️ Adopted: ${post.title}` : post.title}
+                            description={post.sponsors && post.sponsors.length > 0 ? `Sponsored by ${post.sponsors[0].name}. Tap for details.` : "Tap to view details"}
                             onCalloutPress={() => {
                                 if (navigation) navigation.navigate('PostDetail', { postId: post.id })
                             }}

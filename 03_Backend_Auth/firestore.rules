@@ -42,28 +42,24 @@ service cloud.firestore {
 
     // NGO Forms Collection
     match /ngo_forms/{formId} {
-      // Only NGOs and Admins can create/edit forms
-      allow create, update, delete: if isRole('ngo') || isRole('admin');
-      // Anyone can read forms to apply
-      allow read: if isAuthenticated();
+      allow create, update, delete, read: if isAuthenticated();
     }
 
     // Applications Collection
-    match /applications/{applicationId} {
-      // Volunteers can submit their applications
-      allow create: if isAuthenticated() && request.resource.data.applicantId == request.auth.uid;
-      // Volunteers can read their own applications, NGOs and Admins can read all applications
-      allow read: if isAuthenticated() && (request.auth.uid == resource.data.applicantId || isRole('ngo') || isRole('admin'));
+    match /volunteer_applications/{applicationId} {
+      allow create, read, update: if isAuthenticated();
     }
 
-    // Chats Collection
-    match /chats/{chatId} {
-      allow read, update: if isAuthenticated() && request.auth.uid in resource.data.participantIds;
-      // Creation restricted to system or issue authors
+    // Groups Collection (for Community/Volunteer Chat)
+    match /groups/{groupId} {
+      // Anyone logged in can read group metadata or join
+      allow read, update: if isAuthenticated();
+      // Anyone logged in can create a new group
       allow create: if isAuthenticated();
 
       match /messages/{messageId} {
-        allow read, create: if isAuthenticated() && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participantIds;
+        // Anyone logged in can read or write messages to a group
+        allow read, create: if isAuthenticated();
         // Messages generally shouldn't be updated or deleted to maintain civic record
         allow update, delete: if false; 
       }

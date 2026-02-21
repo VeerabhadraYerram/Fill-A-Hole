@@ -1,54 +1,129 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import { useNavigation } from '@react-navigation/native';
 import { theme } from '../core/theme';
+import { db } from '../core/firebaseConfig';
+import { collection, addDoc, serverTimestamp, doc, setDoc } from 'firebase/firestore';
 
-export const QuestionCard = ({ label, type = 'text', placeholder, options = [] }) => {
+export const QuestionCard = ({ label, type = 'text', placeholder, options = [], value, onChange }) => {
+
+    const toggleOption = (opt) => {
+        let current = Array.isArray(value) ? value : [];
+        if (current.includes(opt)) {
+            onChange(current.filter(o => o !== opt));
+        } else {
+            onChange([...current, opt]);
+        }
+    };
+
+    const handlePhoto = async () => {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+            Alert.alert('Permission Denied', 'Camera roll permissions needed');
+            return;
+        }
+        let result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            quality: 0.5,
+            base64: true
+        });
+        if (!result.canceled && result.assets && result.assets.length > 0) {
+            onChange('data:image/jpeg;base64,' + result.assets[0].base64.substring(0, 100) + '...');
+            Alert.alert("Success", "ID Proof uploaded successfully!");
+        }
+    };
+
     return (
         <View style={styles.qCard}>
             <Text style={styles.qLabel}>{label}</Text>
             {type === 'text' && (
-                <TextInput style={styles.input} placeholder={placeholder} />
+                <TextInput
+                    style={styles.input}
+                    placeholder={placeholder}
+                    value={value || ''}
+                    onChangeText={onChange}
+                />
             )}
             {type === 'multiple-choice' && (
                 <View style={styles.optionsContainer}>
-                    {options.map((opt, i) => (
-                        <TouchableOpacity key={i} style={styles.optionBtn}>
-                            <Text style={styles.optionText}>{opt}</Text>
-                        </TouchableOpacity>
-                    ))}
+                    {options.map((opt, i) => {
+                        const isSelected = Array.isArray(value) && value.includes(opt);
+                        return (
+                            <TouchableOpacity
+                                key={i}
+                                style={[styles.optionBtn, isSelected && { backgroundColor: theme.colors.primaryGreen }]}
+                                onPress={() => toggleOption(opt)}
+                            >
+                                <Text style={[styles.optionText, isSelected && { color: 'white' }]}>{opt}</Text>
+                            </TouchableOpacity>
+                        );
+                    })}
                 </View>
             )}
             {type === 'photo' && (
-                <TouchableOpacity style={styles.photoUploadBtn}>
-                    <Text style={{ fontSize: 24, marginBottom: 4 }}>📸</Text>
-                    <Text style={{ color: '#666' }}>Tap to upload verified photo</Text>
+                <TouchableOpacity style={styles.photoUploadBtn} onPress={handlePhoto}>
+                    <Text style={{ fontSize: 24, marginBottom: 4 }}>{value ? '✅' : '📸'}</Text>
+                    <Text style={{ color: '#666' }}>{value ? 'ID Proof Uploaded!' : 'Tap to upload ID proof'}</Text>
                 </TouchableOpacity>
             )}
         </View>
     );
 };
 
-export const FormRenderer = ({ schema = [] }) => {
+export const FormRenderer = ({ schema = [], postId }) => {
+    const [formData, setFormData] = useState({});
+    const navigation = useNavigation();
+
+    const handleUpdate = (label, val) => {
+        setFormData(prev => ({ ...prev, [label]: val }));
+    };
+
+    const handleSubmit = async () => {
+        try {
+            await addDoc(collection(db, 'volunteer_applications'), {
+                postId: postId || 'General',
+                applicationData: formData,
+                status: 'Under Review',
+                submittedAt: serverTimestamp()
+            });
+            Alert.alert("Success! 🎉", "Your volunteer application has been submitted to the NGO.");
+            navigation.goBack();
+        } catch (e) {
+            Alert.alert("Error", "Could not submit form.");
+            console.error(e);
+        }
+    };
+
     return (
         <View style={styles.formRenderer}>
             {schema.map((item, index) => (
-                <QuestionCard key={index} {...item} />
+                <QuestionCard
+                    key={index}
+                    {...item}
+                    value={formData[item.label]}
+                    onChange={(val) => handleUpdate(item.label, val)}
+                />
             ))}
-            <TouchableOpacity style={styles.submitBtn}>
+            <TouchableOpacity style={styles.submitBtn} onPress={handleSubmit}>
                 <Text style={styles.submitBtnText}>Submit Application</Text>
             </TouchableOpacity>
         </View>
     );
 };
 
-export const DynamicFormBuilder = () => {
+export const DynamicFormBuilder = ({ postId }) => {
     const [fields, setFields] = useState([]);
+    const [formTitle, setFormTitle] = useState('');
+    const [volunteerTarget, setVolunteerTarget] = useState('');
+    const navigation = useNavigation();
 
     const addField = (type) => {
         const newField = {
-            id: `field_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+            id: `field_${Date.now()}`,
             type: type,
             label: "",
+            options: type === 'multiple-choice' ? ['Option 1'] : [],
             required: true
         };
         setFields([...fields, newField]);
@@ -58,31 +133,72 @@ export const DynamicFormBuilder = () => {
         setFields(fields.map(f => f.id === id ? { ...f, label: text } : f));
     };
 
+    const updateFieldOptions = (id, text) => {
+        setFields(fields.map(f => f.id === id ? { ...f, options: text.split(',').map(s => s.trim()) } : f));
+    };
+
+    const handlePostForm = async () => {
+        if (!formTitle.trim() || !volunteerTarget.trim()) {
+            Alert.alert("Missing Details", "Please provide a Form Title and Volunteer Target.");
+            return;
+        }
+        try {
+            await setDoc(doc(db, 'ngo_forms', postId || 'General'), {
+                formTitle,
+                volunteerTarget: parseInt(volunteerTarget, 10),
+                schema: fields,
+                createdAt: serverTimestamp()
+            });
+            Alert.alert("Success", "Form posted successfully!");
+            if (navigation.canGoBack()) navigation.goBack();
+        } catch (e) {
+            Alert.alert("Error", "Could not post form.");
+            console.error(e);
+        }
+    };
+
     return (
         <View style={styles.builderContainer}>
-            <Text style={styles.builderTitle}>Dynamic Form Builder (Admin)</Text>
+            <Text style={styles.builderTitle}>Create NGO Application Form</Text>
+
+            <TextInput style={[styles.input, { marginBottom: 12 }]} placeholder="Form Title (e.g., Park Cleanup App)" value={formTitle} onChangeText={setFormTitle} />
+            <TextInput style={[styles.input, { marginBottom: 16 }]} placeholder="Volunteer Target (e.g., 5)" value={volunteerTarget} onChangeText={setVolunteerTarget} keyboardType="numeric" />
+
             <View style={styles.builderToolbar}>
                 <TouchableOpacity style={styles.toolBtn} onPress={() => addField('text')}><Text style={styles.toolText}>+ Text Field</Text></TouchableOpacity>
                 <TouchableOpacity style={styles.toolBtn} onPress={() => addField('multiple-choice')}><Text style={styles.toolText}>+ Multiple Choice</Text></TouchableOpacity>
                 <TouchableOpacity style={styles.toolBtn} onPress={() => addField('photo')}><Text style={styles.toolText}>+ Photo Upload</Text></TouchableOpacity>
             </View>
+
             <ScrollView style={styles.builderCanvas}>
                 {fields.length === 0 ? (
-                    <Text style={{ textAlign: 'center', color: '#999', marginTop: 40 }}>Add your first field above to start building the application form!</Text>
+                    <Text style={{ textAlign: 'center', color: '#999', marginTop: 40 }}>Add your first field above to start building the form!</Text>
                 ) : (
                     fields.map((field, index) => (
                         <View key={field.id} style={styles.builderItem}>
                             <Text style={{ fontWeight: 'bold' }}>Q{index + 1}: {field.type.toUpperCase()}</Text>
                             <TextInput
                                 style={styles.builderInput}
-                                placeholder={`Enter question title for ${field.type}...`}
+                                placeholder={`Enter question title...`}
                                 value={field.label}
                                 onChangeText={(text) => updateFieldLabel(field.id, text)}
                             />
+                            {field.type === 'multiple-choice' && (
+                                <TextInput
+                                    style={[styles.builderInput, { marginTop: 4, fontStyle: 'italic', fontSize: 12 }]}
+                                    placeholder={`Comma-separated options (e.g., Shovel, Cement)`}
+                                    value={field.options.join(', ')}
+                                    onChangeText={(text) => updateFieldOptions(field.id, text)}
+                                />
+                            )}
                         </View>
                     ))
                 )}
             </ScrollView>
+
+            <TouchableOpacity style={[styles.submitBtn, { marginTop: 16 }]} onPress={handlePostForm}>
+                <Text style={styles.submitBtnText}>Post Form</Text>
+            </TouchableOpacity>
         </View>
     );
 };

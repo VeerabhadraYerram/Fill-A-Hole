@@ -9,6 +9,7 @@ import * as Location from 'expo-location';
 import { theme } from '../core/theme';
 import { db, auth } from '../core/firebaseConfig';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { updateProfile } from 'firebase/auth';
 
 const { width, height } = Dimensions.get('window');
 
@@ -105,6 +106,7 @@ export default function RegistrationScreen({ navigation }) {
         try {
             const user = auth.currentUser;
             if (!user) throw new Error('No authenticated user.');
+            await updateProfile(user, { displayName: fullName.trim() });
             await setDoc(doc(db, 'users', user.uid), {
                 displayName: fullName.trim(),
                 city: reversedAddress.city,

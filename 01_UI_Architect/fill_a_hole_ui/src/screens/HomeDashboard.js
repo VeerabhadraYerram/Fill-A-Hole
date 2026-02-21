@@ -98,7 +98,7 @@ export default function HomeDashboard({ navigation }) {
                                 <Image source={{ uri: `https://i.pravatar.cc/150?img=${index + 10}` }} style={styles.authorAvatar} />
                                 <View>
                                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                        <Text style={styles.authorName}>Reported by UID: {typeof item.authorId === 'string' ? item.authorId.substring(0, 5) : "Anon"}</Text>
+                                        <Text style={styles.authorName}>Reported by {item.authorName || (typeof item.authorId === 'string' ? item.authorId.substring(0, 5) : "Anon")}</Text>
                                         {item.verificationData?.isVerified && (
                                             <Text style={{ marginLeft: 4, fontSize: 12 }}>✅ {item.verificationData.trustScore}% Trusted</Text>
                                         )}

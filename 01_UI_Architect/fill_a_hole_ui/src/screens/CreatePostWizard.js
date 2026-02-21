@@ -108,7 +108,11 @@ async function analyzePhotoAuthenticity(photoUri, location, captureTime, descrip
                                 },
                                 {
                                     type: "text",
-                                    text: `You are a strict civic issue verification AI. Analyze the photo I attached. Determine if the photo matches the Title: "${title}", Category: "${category}", and Description: "${description}". Are they telling the truth about the issue shown in the picture? Ensure the photo is not completely unrelated (like a picture of a dog for a pothole). Provide your answer strictly as a raw JSON object matching EXACTLY this structure:\n{\n  "isAuthentic": true,\n  "reason": "Clear explanation of what is in the photo",\n  "confidenceDeduction": 0\n}\nDo NOT include markdown tags like \`\`\`json. Return ONLY the raw JSON object.`
+                                    text: `You are a ZERO-TOLERANCE anti-fraud AI for a civic issue reporting app (like potholes, garbage, broken infrastructure). 
+Analyze the user's photo against Title: "${title}", Category: "${category}", Description: "${description}".
+CRITICAL DIRECTIVE: You MUST be extremely skeptical. If the photo shows an indoor item (table, laptop, house, pet) or anything that is clearly NOT outdoor public civic infrastructure, it is a FAKE submission.
+If the photo does NOT definitively prove the civic issue described exists, you MUST set "isAuthentic" to false, set "confidenceDeduction" to 100, and provide a harsh "reason" (e.g., "This is a photo of a wooden table indoors, not a street pothole.").
+Provide your answer strictly as a raw JSON object matching EXACTLY this structure:\n{\n  "isAuthentic": true,\n  "reason": "Clear explanation of what is in the photo",\n  "confidenceDeduction": 0\n}\nDo NOT include markdown tags like \`\`\`json. Return ONLY the raw JSON object.`
                                 }
                             ]
                         }
@@ -160,45 +164,34 @@ async function analyzePhotoAuthenticity(photoUri, location, captureTime, descrip
 }
 
 /**
- * AI Volunteer & Resource Matching Engine.
- * Analyzes title + description + category to suggest what's needed.
+ * AI Volunteer, Cost & Resource Estimation Engine (Vision-Enabled).
+ * Analyzes the attached image + text data + location to estimate funding and manpower.
  */
-async function analyzeResourceRequirements(title, description, category) {
-    const text = `${title} ${description} ${category}`.toLowerCase();
+async function analyzePreviewEstimation(title, description, category, location, base64Image) {
+    const locStr = location ? `Lat: ${location.lat || location.latitude}, Lng: ${location.lng || location.longitude}` : 'Unknown';
+    const textContext = `Issue Title: ${title}\nCategory: ${category}\nDescription: ${description}\nLocation: ${locStr}`;
 
-    // Fallback heuristic in case API fails or key is missing
     const getFallback = () => {
         let base = {
-            volunteers: { count: 3, skills: ['General civic volunteers'] },
+            volunteers: { count: 3, skills: ['General volunteers'] },
             materials: ['Basic supplies'],
-            equipment: ['Gloves', 'Safety vest'],
+            equipment: ['Safety gear'],
             estimatedHours: 2,
+            fundsRequired: 500, // INR fallback
             urgency: category === 'Safety' ? 'High' : 'Normal',
-            recruitement: ['🙋 3 general community volunteers', '📋 1 coordinator']
+            recruitement: ['🙋 3 community volunteers']
         };
 
-        if (text.includes('pothole') || text.includes('road')) {
-            base.volunteers = { count: 4, skills: ['Manual labour', 'Traffic management'] };
-            base.materials = ['Gravel (2 bags)', 'Cold-mix asphalt', 'Sand'];
-            base.equipment = ['Shovel', 'Tamper', 'Traffic cones (6)', 'Hi-vis vests'];
-            base.estimatedHours = 3;
-            base.urgency = 'High — vehicle hazard';
-            base.recruitement = [
-                '🚧 4 volunteers with manual labour experience',
-                '🦺 1 trained traffic marshal',
-                '🔨 1 person with road repair knowledge'
-            ];
-        } else if (text.includes('garbage') || text.includes('waste')) {
-            base.volunteers = { count: 6, skills: ['Waste handling', 'Sorting'] };
-            base.materials = ['Heavy-duty garbage bags (20)', 'Disinfectant spray', 'Recycling bins'];
-            base.equipment = ['Gloves', 'Safety mask', 'Picker tools'];
-            base.estimatedHours = 2;
-            base.urgency = 'Medium — health risk';
-            base.recruitement = [
-                '🗑️ 6 volunteers for clean-up',
-                '🧤 Any volunteers — basic gear provided',
-                '♻️ 1 person familiar with waste sorting'
-            ];
+        if (textContext.toLowerCase().includes('pothole') || textContext.toLowerCase().includes('road')) {
+            base.volunteers.count = 4;
+            base.materials = ['Gravel (2 bags)', 'Cold-mix asphalt'];
+            base.equipment = ['Shovel', 'Tamper', 'Traffic cones'];
+            base.fundsRequired = 1500;
+        } else if (textContext.toLowerCase().includes('garbage')) {
+            base.volunteers.count = 6;
+            base.materials = ['Heavy-duty bags', 'Disinfectant'];
+            base.equipment = ['Gloves', 'Picker tools'];
+            base.fundsRequired = 800;
         }
         return base;
     };
@@ -210,6 +203,43 @@ async function analyzeResourceRequirements(title, description, category) {
     }
 
     try {
+        const messages = [
+            {
+                role: "user",
+                content: [
+                    {
+                        type: "text",
+                        text: `You are an expert, highly FRUGAL civic infrastructure estimator and a strict anti-fraud detector. Analyze the image and text:
+${textContext}
+
+CRITICAL RULES:
+1. Anti-Fraud: If the image is unrelated (e.g., table, indoor room, computer screen, face) and NOT outdoor civic infrastructure, you MUST return 0 for everything, empty arrays, and set urgency to "INVALID - FAKE PHOTO".
+2. Frugality: If the issue is valid, estimate the absolute MINIMUM realistic cost (in INR ₹), manpower, and time using cheap local labor and basic materials. Do not over-engineer. Be extremely cheap.
+3. Output Format: Return STRICTLY raw JSON matching this structure exactly, with NO markdown formatting:
+{
+  "volunteers": { "count": 2, "skills": ["Skill"] },
+  "materials": ["Material 1"],
+  "equipment": ["Tool 1"],
+  "estimatedHours": 2,
+  "fundsRequired": 800,
+  "urgency": "High",
+  "recruitement": ["Emoji + Req"]
+}`
+                    }
+                ]
+            }
+        ];
+
+        if (base64Image) {
+            messages[0].content.unshift({
+                type: "image_url",
+                image_url: {
+                    url: `data:image/jpeg;base64,${base64Image}`,
+                    detail: "high"
+                }
+            });
+        }
+
         const response = await fetch("https://api.x.ai/v1/chat/completions", {
             method: "POST",
             headers: {
@@ -217,27 +247,9 @@ async function analyzeResourceRequirements(title, description, category) {
                 "Authorization": `Bearer ${apiKey}`
             },
             body: JSON.stringify({
-                model: "grok-2-latest",
-                messages: [
-                    {
-                        role: "system",
-                        content: `You are an AI assistant for a local civic issue tracking platform. Given a civic issue (title, category, and description), estimate the necessary resources to solve it. Return your answer STRICTLY as a JSON object matching this exact structure, with no markdown formatting around it:
-{
-    "volunteers": { "count": 2, "skills": ["Skill 1", "Skill 2"] },
-    "materials": ["Material 1", "Material 2"],
-    "equipment": ["Tool 1", "Tool 2"],
-    "estimatedHours": 3,
-    "urgency": "Normal / High / Critical",
-    "recruitement": ["Emoji + Requirement 1", "Emoji + Requirement 2"]
-}
-Keep realistic and community-focused.`
-                    },
-                    {
-                        role: "user",
-                        content: `Issue Title: ${title}\nCategory: ${category}\nDescription: ${description}`
-                    }
-                ],
-                temperature: 0.2
+                model: base64Image ? "grok-2-vision-1212" : "grok-2-latest",
+                messages: messages,
+                temperature: 0.1
             })
         });
 
@@ -256,17 +268,17 @@ Keep realistic and community-focused.`
         }
 
         const parsedResult = JSON.parse(resultContent);
-        // Ensure default properties exist in case Grok hallucinates the schema slightly
         return {
             volunteers: parsedResult.volunteers || { count: 3, skills: ['General'] },
             materials: parsedResult.materials || [],
             equipment: parsedResult.equipment || [],
             estimatedHours: parsedResult.estimatedHours || 2,
+            fundsRequired: parsedResult.fundsRequired || 500,
             urgency: parsedResult.urgency || 'Normal',
             recruitement: parsedResult.recruitement || []
         };
     } catch (error) {
-        console.error("Error calling Grok API, falling back to heuristic:", error);
+        console.error("Error calling Grok Vision API:", error);
         return getFallback();
     }
 }
@@ -300,13 +312,13 @@ export default function CreatePostWizard({ navigation, route }) {
     const [tagNgo, setTagNgo] = useState(false);
     const [captureTime, setCaptureTime] = useState(null);
 
+    const [previewAnalyzed, setPreviewAnalyzed] = useState(false);
+
     // ── Receive photo from GeoCamera → here ──
     useEffect(() => {
         if (route.params?.photoUri && mediaUri !== route.params.photoUri) {
             setMediaUri(route.params.photoUri);
             setCaptureTime(Date.now());
-            // We NO LONGER run authenticity here. It runs on submit.
-            // Jump to step 1 (categories)
             if (step === 0) {
                 setTimeout(() => pagerRef.current?.setPage(1), 100);
             }
@@ -320,22 +332,30 @@ export default function CreatePostWizard({ navigation, route }) {
         }
     }, [route.params?.photoUri, route.params?.capturedPhotoUri]);
 
-    // ── AI resource analysis (triggered when community solvable + enough info) ──
+    // ── AI Vision Estimation triggered instantly ONLY entering Step 3 (Preview) ──
     useEffect(() => {
-        if (!communitySolvable) { setAiResources(null); return; }
-        setAiAnalyzing(true);
-        const timer = setTimeout(async () => {
-            const resources = await analyzeResourceRequirements(title, description, selectedCategory);
-            setAiResources(resources);
-            // Auto-add category tag if not already present
-            const catLabel = CATEGORIES.find(c => c.id === selectedCategory)?.label || '';
-            if (catLabel && !tags.includes(catLabel)) {
-                setTags(prev => prev.includes(catLabel) ? prev : [catLabel, ...prev]);
-            }
-            setAiAnalyzing(false);
-        }, 1800);
-        return () => clearTimeout(timer);
-    }, [communitySolvable, title, description, selectedCategory]);
+        if (step === 3 && !previewAnalyzed) {
+            setAiAnalyzing(true);
+            const runVisionAnalysis = async () => {
+                const loc = route.params?.location || route.params?.capturedLocation;
+                const b64 = route.params?.capturedBase64;
+                const catLabel = CATEGORIES.find(c => c.id === selectedCategory)?.label || selectedCategory;
+
+                // Pass the high-res base64 image + user text logic directly to Vision AI
+                const resources = await analyzePreviewEstimation(title, description, catLabel, loc, b64);
+                setAiResources(resources);
+
+                // Auto-add category tag if not present based on inference
+                if (catLabel && !tags.includes(catLabel)) {
+                    setTags(prev => prev.includes(catLabel) ? prev : [catLabel, ...prev]);
+                }
+
+                setAiAnalyzing(false);
+                setPreviewAnalyzed(true);
+            };
+            runVisionAnalysis();
+        }
+    }, [step]);
 
     // ─────────────────────────────────────────────────────────────────────────
     const addTag = () => {
@@ -396,6 +416,7 @@ export default function CreatePostWizard({ navigation, route }) {
 
             const newPost = {
                 authorId: user ? user.uid : 'anonymous',
+                authorName: user ? (user.displayName || (user.email ? user.email.split('@')[0] : 'Citizen')) : 'Citizen',
                 title: title.trim(),
                 description: description.trim(),
                 category: catLabel,
@@ -416,6 +437,7 @@ export default function CreatePostWizard({ navigation, route }) {
                     estimatedHours: aiResources.estimatedHours,
                     urgency: aiResources.urgency,
                     recruitement: aiResources.recruitement,
+                    fundsRequired: aiResources.fundsRequired,
                 } : {},
                 verificationData: {
                     isVerified: finalAuth.score >= 85,
@@ -594,59 +616,19 @@ export default function CreatePostWizard({ navigation, route }) {
                     <View style={styles.toggleCard}>
                         <View style={{ flex: 1 }}>
                             <Text style={{ fontWeight: 'bold' }}>Community Solvable</Text>
-                            <Text style={{ color: '#666', fontSize: 12 }}>Enable AI volunteer & resource matching.</Text>
+                            <Text style={{ color: '#666', fontSize: 12 }}>Check this if you think local volunteers could fix this issue.</Text>
                         </View>
                         <Switch value={communitySolvable} onValueChange={setCommunitySolvable} thumbColor={theme.colors.primaryGreen} trackColor={{ true: 'rgba(0, 200, 83, 0.4)' }} />
                     </View>
-
-                    {communitySolvable && (
-                        <View style={styles.aiSection}>
-                            <Text style={styles.aiSectionTitle}>🤖 AI Resource Analysis</Text>
-                            {aiAnalyzing ? (
-                                <AILoadingIndicator />
-                            ) : aiResources ? (
-                                <>
-                                    <View style={[styles.urgencyBadge, {
-                                        backgroundColor: aiResources.urgency.includes('Critical') ? '#FFEBEE' :
-                                            aiResources.urgency.includes('High') ? '#FFF3E0' : '#E8F5E9'
-                                    }]}>
-                                        <Text style={{ fontWeight: 'bold', color: aiResources.urgency.includes('Critical') ? '#C62828' : aiResources.urgency.includes('High') ? '#E65100' : '#2E7D32', fontSize: 12 }}>
-                                            ⚡ Urgency: {aiResources.urgency}
-                                        </Text>
-                                        <Text style={{ color: '#555', fontSize: 12, marginTop: 2 }}>
-                                            Est. {aiResources.estimatedHours}h to resolve
-                                        </Text>
-                                    </View>
-
-                                    <Text style={styles.aiSubhead}>👥 Volunteers Needed</Text>
-                                    {aiResources.recruitement.map((r, i) => (
-                                        <View key={i} style={styles.recruitRow}>
-                                            <Text style={styles.recruitText}>{r}</Text>
-                                        </View>
-                                    ))}
-
-                                    <Text style={styles.aiSubhead}>🧱 Materials Required</Text>
-                                    {aiResources.materials.map((m, i) => (
-                                        <View key={i} style={styles.materialRow}>
-                                            <Text style={{ color: '#555', fontSize: 13 }}>• {m}</Text>
-                                        </View>
-                                    ))}
-
-                                    <Text style={styles.aiSubhead}>🔧 Equipment</Text>
-                                    {aiResources.equipment.map((e, i) => (
-                                        <View key={i} style={styles.materialRow}>
-                                            <Text style={{ color: '#555', fontSize: 13 }}>• {e}</Text>
-                                        </View>
-                                    ))}
-                                </>
-                            ) : null}
-                        </View>
-                    )}
                 </ScrollView>
 
                 {/* ── Step 4: Preview ── */}
                 <ScrollView key="3" style={{ flex: 1 }} contentContainerStyle={styles.page}>
-                    <Text style={theme.typography.displayLarge}>Preview</Text>
+                    <Text style={theme.typography.displayLarge}>Final Preview & AI Estimation</Text>
+                    <Text style={styles.subtitle}>
+                        Our Vision AI is calculating the projected required cost and manpower based on your photo.
+                    </Text>
+
                     <View style={styles.previewCard}>
                         <View style={styles.previewHeader}>
                             {mediaUri
@@ -661,14 +643,6 @@ export default function CreatePostWizard({ navigation, route }) {
                             </View>
                         </View>
 
-                        {aiAuth && (
-                            <View style={[styles.previewBadge, { backgroundColor: aiAuth.verdict.color + '22', marginTop: 12 }]}>
-                                <Text style={[styles.previewBadgeText, { color: aiAuth.verdict.color }]}>
-                                    {aiAuth.verdict.emoji} AI Trust: {aiAuth.score}/100 · {aiAuth.verdict.label}
-                                </Text>
-                            </View>
-                        )}
-
                         <Text style={{ fontWeight: 'bold', marginTop: 16 }}>Description:</Text>
                         <Text style={{ color: '#555', marginTop: 4 }}>{description || 'No description provided.'}</Text>
 
@@ -682,21 +656,57 @@ export default function CreatePostWizard({ navigation, route }) {
                             </View>
                         )}
 
-                        {communitySolvable && aiResources && (
-                            <View style={[styles.previewBadge, { backgroundColor: '#E3F2FD', marginTop: 8 }]}>
-                                <Text style={[styles.previewBadgeText, { color: '#1565C0' }]}>
-                                    🤖 AI: {aiResources.volunteers.count} volunteers · {aiResources.estimatedHours}h · {aiResources.urgency}
-                                </Text>
-                            </View>
-                        )}
-
                         {tagNgo && (
                             <View style={[styles.previewBadge, { backgroundColor: '#E8EAF6', marginTop: 8 }]}>
                                 <Text style={[styles.previewBadgeText, { color: '#3949AB' }]}>📢 NGOs will be notified</Text>
                             </View>
                         )}
                     </View>
+
+                    {/* AI Vision Estimation Box */}
+                    <View style={styles.aiSection}>
+                        <Text style={styles.aiSectionTitle}>🤖 Vision AI Resolution Estimate</Text>
+                        {aiAnalyzing ? (
+                            <AILoadingIndicator />
+                        ) : aiResources ? (
+                            <>
+                                <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
+                                    <View style={[styles.urgencyBadge, { flex: 1, backgroundColor: '#E3F2FD' }]}>
+                                        <Text style={{ fontWeight: 'bold', color: '#1565C0', fontSize: 16 }}>
+                                            ₹{aiResources.fundsRequired?.toLocaleString() || "N/A"}
+                                        </Text>
+                                        <Text style={{ color: '#1565C0', fontSize: 11, marginTop: 2 }}>Est. Cost</Text>
+                                    </View>
+
+                                    <View style={[styles.urgencyBadge, { flex: 1, backgroundColor: '#FFF3E0' }]}>
+                                        <Text style={{ fontWeight: 'bold', color: '#E65100', fontSize: 16 }}>
+                                            ⏱️ {aiResources.estimatedHours}h
+                                        </Text>
+                                        <Text style={{ color: '#E65100', fontSize: 11, marginTop: 2 }}>Completion Time</Text>
+                                    </View>
+
+                                    <View style={[styles.urgencyBadge, { flex: 1, backgroundColor: '#E8F5E9' }]}>
+                                        <Text style={{ fontWeight: 'bold', color: '#2E7D32', fontSize: 16 }}>
+                                            👥 {aiResources.volunteers?.count || 0}
+                                        </Text>
+                                        <Text style={{ color: '#2E7D32', fontSize: 11, marginTop: 2 }}>Manpower</Text>
+                                    </View>
+                                </View>
+
+                                <Text style={styles.aiSubhead}>🛠️ Materials & Equipment Required</Text>
+                                {(aiResources.materials || []).concat(aiResources.equipment || []).slice(0, 5).map((m, i) => (
+                                    <View key={i} style={styles.materialRow}>
+                                        <Text style={{ color: '#555', fontSize: 13 }}>• {m}</Text>
+                                    </View>
+                                ))}
+                            </>
+                        ) : (
+                            <Text style={{ color: '#666', fontStyle: 'italic' }}>AI data unavailable</Text>
+                        )}
+                    </View>
                 </ScrollView>
+
+
             </PagerView>
 
             <TouchableOpacity
