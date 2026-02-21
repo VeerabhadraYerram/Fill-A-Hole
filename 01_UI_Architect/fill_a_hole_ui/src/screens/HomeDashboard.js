@@ -34,26 +34,54 @@ export default function HomeDashboard({ navigation }) {
         }).catch(console.error);
     }, []);
 
+    const [regularPosts, setRegularPosts] = useState([]);
+    const [anomalies, setAnomalies] = useState([]);
+
+    useEffect(() => {
+        const sorted = [...regularPosts, ...anomalies].sort((a, b) => {
+            const timeA = a.createdAt?.seconds || 0;
+            const timeB = b.createdAt?.seconds || 0;
+            return timeB - timeA;
+        });
+        setPosts(sorted);
+    }, [regularPosts, anomalies]);
+
     useEffect(() => {
         const q = query(collection(db, 'posts'), orderBy('createdAt', 'desc'));
-        const unsubscribe = onSnapshot(q, (snapshot) => {
+        const unsubscribePosts = onSnapshot(q, (snapshot) => {
             const fetchedPosts = [];
             const currentUser = auth.currentUser;
             snapshot.forEach((doc) => {
                 const data = doc.data();
-                // Hide flagged posts unless the current user is the author
-                if (data.status === 'flagged' && data.authorId !== currentUser?.uid) {
-                    return;
-                }
+                if (data.status === 'flagged' && data.authorId !== currentUser?.uid) return;
                 fetchedPosts.push({ id: doc.id, ...data });
             });
-            setPosts(fetchedPosts);
-        }, (error) => {
-            console.error("Firestore Error in HomeDashboard:", error);
-        });
+            setRegularPosts(fetchedPosts);
+        }, (error) => console.error("Firestore Error in HomeDashboard posts:", error));
 
-        // Cleanup subscription on unmount
-        return () => unsubscribe();
+        const anomaliesQuery = query(collection(db, 'sensor_anomalies'), orderBy('timestamp', 'desc'));
+        const unsubscribeAnomalies = onSnapshot(anomaliesQuery, (snapshot) => {
+            const fetchedAnomalies = [];
+            snapshot.forEach((doc) => {
+                const data = doc.data();
+                fetchedAnomalies.push({
+                    id: doc.id,
+                    isAnomaly: true,
+                    title: `⚠️ Unverified Problem (Severity: ${data.severityScore})`,
+                    description: `Automatically detected by Auto-Sense sensors at ${data.speedAtImpact} km/h. Volunteer needed to verify.`,
+                    createdAt: data.timestamp,
+                    location: data.location,
+                    authorName: 'Auto-Sense System',
+                    mediaUrls: []
+                });
+            });
+            setAnomalies(fetchedAnomalies);
+        }, (error) => console.error("Firestore Error in HomeDashboard anomalies:", error));
+
+        return () => {
+            unsubscribePosts();
+            unsubscribeAnomalies();
+        };
     }, []);
 
     const onRefresh = React.useCallback(() => {
@@ -93,9 +121,19 @@ export default function HomeDashboard({ navigation }) {
                     refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.colors.primaryGreen]} />}
                     ListEmptyComponent={<Text style={{ textAlign: 'center', marginTop: 50, color: '#666' }}>No issues reported yet in your area.</Text>}
                     renderItem={({ item, index }) => (
-                        <TouchableOpacity activeOpacity={0.9} onPress={() => navigation.navigate('PostDetail', { postId: item.id })} style={styles.issueCard}>
+                        <TouchableOpacity
+                            activeOpacity={0.9}
+                            onPress={() => {
+                                if (item.isAnomaly) {
+                                    navigation.navigate('Map', { focusLocation: item.location });
+                                } else {
+                                    navigation.navigate('PostDetail', { postId: item.id });
+                                }
+                            }}
+                            style={styles.issueCard}
+                        >
                             <View style={styles.cardHeader}>
-                                <Image source={{ uri: `https://i.pravatar.cc/150?img=${index + 10}` }} style={styles.authorAvatar} />
+                                <Image source={{ uri: `https://i.pravatar.cc/150?img=${item.isAnomaly ? 1 : index + 10}` }} style={styles.authorAvatar} />
                                 <View>
                                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                                         <Text style={styles.authorName}>Reported by {item.authorName || (typeof item.authorId === 'string' ? item.authorId.substring(0, 5) : "Anon")}</Text>
@@ -107,7 +145,12 @@ export default function HomeDashboard({ navigation }) {
                                 </View>
                             </View>
 
-                            {item.mediaUrls && item.mediaUrls.length > 0 ? (
+                            {item.isAnomaly ? (
+                                <View style={[styles.cardImage, { backgroundColor: '#FFFBEB', justifyContent: 'center', alignItems: 'center' }]}>
+                                    <Text style={{ fontSize: 40, marginBottom: 10 }}>⚠️</Text>
+                                    <Text style={{ color: '#D97706', fontWeight: 'bold' }}>Unverified Sensor Detection</Text>
+                                </View>
+                            ) : item.mediaUrls && item.mediaUrls.length > 0 ? (
                                 <Image source={{ uri: item.mediaUrls[0] }} style={styles.cardImage} />
                             ) : (
                                 <View style={[styles.cardImage, { backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center' }]}>
@@ -123,6 +166,10 @@ export default function HomeDashboard({ navigation }) {
                                         <View style={styles.badge}><Text style={styles.badgeText}>Community Solvable</Text></View>
                                     )}
                                 </View>
+
+                                {item.isAnomaly && (
+                                    <Text style={{ color: '#666', marginTop: 8, lineHeight: 20 }}>{item.description}</Text>
+                                )}
 
                                 {item.volunteersNeeded && item.materialsNeeded && (
                                     <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 8 }}>

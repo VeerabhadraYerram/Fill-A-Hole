@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TextInput, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TextInput, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import MapView from 'react-native-map-clustering';
 import { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
@@ -8,10 +8,12 @@ import { RadarPingMapOverlay } from '../components/GeoFencingComponents';
 import { db, auth } from '../core/firebaseConfig';
 import { collection, query, onSnapshot } from 'firebase/firestore';
 
-export default function MapScreen({ navigation }) {
+export default function MapScreen({ navigation, route }) {
     const [filter, setFilter] = useState('All');
     const [posts, setPosts] = useState([]);
+    const [anomalies, setAnomalies] = useState([]);
     const [userLocation, setUserLocation] = useState({ latitude: 16.5062, longitude: 80.6480 }); // Fallback
+    const [searchQuery, setSearchQuery] = useState('');
     const mapRef = useRef(null);
     const filters = ['All', 'Urgent', '< 10 min', 'Infrastructure', 'Safety'];
 
@@ -37,8 +39,36 @@ export default function MapScreen({ navigation }) {
             setPosts(fetchedPosts);
         }, (error) => console.error("Firestore Error in MapScreen:", error));
 
-        return () => unsubscribe();
+        const anomaliesQuery = query(collection(db, 'sensor_anomalies'));
+        const unsubAnomalies = onSnapshot(anomaliesQuery, (snapshot) => {
+            const fetched = [];
+            snapshot.forEach(doc => fetched.push({ id: doc.id, ...doc.data() }));
+
+            // Basic Clustering Simulation: Group anomalies close to each other
+            // For MVP, we just plot them all if severity > threshold
+            const highSeverity = fetched.filter(a => a.severityScore > 0);
+            setAnomalies(highSeverity);
+        });
+
+        return () => {
+            unsubscribe();
+            unsubAnomalies();
+        };
     }, []);
+
+    useEffect(() => {
+        if (route?.params?.focusLocation && mapRef.current) {
+            const focus = route.params.focusLocation;
+            setTimeout(() => {
+                mapRef.current.animateToRegion({
+                    latitude: focus.lat || focus.latitude,
+                    longitude: focus.lng || focus.longitude,
+                    latitudeDelta: 0.02,
+                    longitudeDelta: 0.02,
+                }, 1000);
+            }, 500);
+        }
+    }, [route?.params?.focusLocation]);
 
     const goToMyLocation = () => {
         if (mapRef.current) {
@@ -48,6 +78,28 @@ export default function MapScreen({ navigation }) {
                 latitudeDelta: 0.05,
                 longitudeDelta: 0.05,
             }, 1000);
+        }
+    };
+
+    const handleSearch = async () => {
+        if (!searchQuery.trim()) return;
+        try {
+            const geocoded = await Location.geocodeAsync(searchQuery);
+            if (geocoded.length > 0) {
+                const { latitude, longitude } = geocoded[0];
+                if (mapRef.current) {
+                    mapRef.current.animateToRegion({
+                        latitude,
+                        longitude,
+                        latitudeDelta: 0.05,
+                        longitudeDelta: 0.05,
+                    }, 1000);
+                }
+            } else {
+                Alert.alert("Location not found", "Could not find coordinates for that search.");
+            }
+        } catch (e) {
+            console.error("Geocoding error", e);
         }
     };
 
@@ -95,10 +147,37 @@ export default function MapScreen({ navigation }) {
                         />
                     );
                 })}
+
+                {anomalies.map(anomaly => {
+                    if (!anomaly.location || !anomaly.location.lat) return null;
+                    return (
+                        <Marker
+                            key={anomaly.id}
+                            coordinate={{ latitude: anomaly.location.lat, longitude: anomaly.location.lng }}
+                            pinColor={'gray'}
+                            title={`⚠️ Unverified Problem`}
+                            description={`Sensor Anomaly: Severity ${anomaly.severityScore}. Tap to verify.`}
+                        />
+                    );
+                })}
             </MapView>
 
+            <TouchableOpacity
+                style={styles.autoSenseBtn}
+                onPress={() => navigation.navigate('AutoSense')}
+            >
+                <Text style={styles.autoSenseIcon}>🚗</Text>
+            </TouchableOpacity>
+
             <View style={styles.searchContainer}>
-                <TextInput style={styles.searchInput} placeholder="Search issues or location" />
+                <TextInput
+                    style={styles.searchInput}
+                    placeholder="Search issues or location"
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                    onSubmitEditing={handleSearch}
+                    returnKeyType="search"
+                />
             </View>
 
             <View style={styles.bottomSheet}>
@@ -146,13 +225,19 @@ const styles = StyleSheet.create({
     },
     searchInput: { fontSize: 16 },
     myLocationBtn: {
-        position: 'absolute', bottom: 150, right: 16,
+        position: 'absolute', bottom: 240, right: 16,
         backgroundColor: 'white', width: 50, height: 50, borderRadius: 25,
         justifyContent: 'center', alignItems: 'center', elevation: 5, shadowColor: '#000'
     },
+    autoSenseBtn: {
+        position: 'absolute', bottom: 310, right: 16,
+        backgroundColor: theme.colors.primaryGreen, width: 50, height: 50, borderRadius: 25,
+        justifyContent: 'center', alignItems: 'center', elevation: 5, shadowColor: '#000'
+    },
+    autoSenseIcon: { fontSize: 24, paddingLeft: 4, paddingBottom: 2 },
     locationIcon: { fontSize: 24, color: theme.colors.primaryGreen },
     bottomSheet: {
-        position: 'absolute', bottom: 0, left: 0, right: 0,
+        position: 'absolute', bottom: 90, left: 0, right: 0,
         backgroundColor: 'white', borderTopLeftRadius: 24, borderTopRightRadius: 24,
         paddingVertical: 16, elevation: 10, shadowColor: '#000', shadowOffset: { width: 0, height: -5 }, shadowOpacity: 0.1,
     },

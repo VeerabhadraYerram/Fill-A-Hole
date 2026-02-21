@@ -50,6 +50,11 @@ service cloud.firestore {
       allow create, read, update: if isAuthenticated();
     }
 
+    // Sensor Anomalies
+    match /sensor_anomalies/{anomalyId} {
+      allow create, read, update, delete: if isAuthenticated();
+    }
+
     // Groups Collection (for Community/Volunteer Chat)
     match /groups/{groupId} {
       // Anyone logged in can read group metadata or join

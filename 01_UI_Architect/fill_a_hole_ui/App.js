@@ -16,6 +16,8 @@ import IssuesListScreen from './src/screens/IssuesListScreen';
 import NGOFormsScreen from './src/screens/NGOFormsScreen';
 import RegistrationScreen from './src/screens/RegistrationScreen';
 
+import AutoSenseScreen from './src/screens/AutoSenseScreen';
+
 const Stack = createNativeStackNavigator();
 
 export default function App() {
@@ -34,6 +36,7 @@ export default function App() {
           <Stack.Screen name="VerificationStatus" component={VerificationStatusScreen} />
           <Stack.Screen name="IssuesList" component={IssuesListScreen} />
           <Stack.Screen name="NGOForms" component={NGOFormsScreen} />
+          <Stack.Screen name="AutoSense" component={AutoSenseScreen} />
         </Stack.Navigator>
       </NavigationContainer>
     </SafeAreaProvider>
